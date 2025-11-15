@@ -63,6 +63,9 @@ def main_controller_loop(custom_mapping):
                 
                 # 在等待激活时减少CPU占用
                 time.sleep(0.1)
+            
+            # 在每次循环后短暂休眠，以避免CPU占用过高
+            time.sleep(0.005)
 
     except KeyboardInterrupt: print("\n正在退出。")
     except Exception as e: print(f"\n发生错误: {e}")
