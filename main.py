@@ -21,7 +21,7 @@ try:
 except Exception:
     pass
 
-MAPPING_FILE = "controller_map.json"
+MAPPING_FILE = "map_Nintendo_Switch_Pro_Controller.json"
 from run_mapping_tool import run_mapping_tool
 from GenericController import GenericController
 from Action import *

@@ -1,196 +1,191 @@
 # ==============================================================================
-# ===================== 交互式手柄映射工具 (增强版) ====================
+# =================== Interactive Gamepad Mapping Tool (Enhanced) =================
 # ==============================================================================
+# Version 2.0: Now with intelligent D-Pad mapping and backward compatibility.
 
 import pygame
 import json
 import re
 
-# --- 配置 ---
-# 定义用于跳过当前步骤的键盘按键
+# --- Configuration ---
 SKIP_KEY = pygame.K_s
 
 class TextPrint:
-    """在屏幕上渲染文本的辅助类"""
+    """A helper class to render text on the screen."""
     def __init__(self):
         self.reset()
-        # 尝试加载常见中文字体，以确保提示信息正常显示
-        font_names = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', None] # None 是系统默认字体
-        for font_name in font_names:
-            try:
-                self.font = pygame.font.SysFont(font_name, 28)
-                # print(f"成功加载字体: {font_name}") # 调试时可以取消注释
-                break
-            except:
-                continue
+        self.font = pygame.font.SysFont(None, 28) # Use system default font
         self.color = (230, 230, 230)
 
     def tprint(self, screen, text):
-        """在屏幕上打印一行文本"""
         screen.blit(self.font.render(text, True, self.color), (self.x, self.y))
         self.y += self.line_height
 
     def reset(self):
-        """重置打印位置到屏幕左上角"""
         self.x = 20
         self.y = 20
         self.line_height = 30
 
-    def indent(self):
-        self.x += 20
-
-    def unindent(self):
-        self.x -= 20
-
 def sanitize_filename(name):
-    """根据设备名称生成一个安全的文件名"""
-    # 移除非法字符，只保留字母、数字、下划线、连字符和空格
+    """Generate a safe filename from the device name."""
     s = re.sub(r'[^\w\s-]', '', name).strip()
-    # 将空格或多个连字符替换为单个下划线
     s = re.sub(r'[-\s]+', '_', s)
     return f"map_{s}.json"
 
 def run_mapping_tool():
     pygame.init()
-    screen = pygame.display.set_mode((800, 600))
-    pygame.display.set_caption("手柄映射工具 (增强版)")
+    screen = pygame.display.set_mode((800, 700))
+    pygame.display.set_caption("Gamepad Mapping Tool (Backward Compatible)")
     clock = pygame.time.Clock()
     text_print = TextPrint()
 
     joysticks = {}
+    
     tasks = [
-        ("A", "请按下 'A' 键 (通常是底部按钮)"),
-        ("B", "请按下 'B' 键 (通常是右侧按钮)"),
-        ("X", "请按下 'X' 键 (通常是左侧按钮)"),
-        ("Y", "请按下 'Y' 键 (通常是顶部按钮)"),
-        ("LB", "请按下 '左肩键' (L1)"),
-        ("RB", "请按下 '右肩键' (R1)"),
-        ("MENU", "请按下 '菜单/Back/Select' 键"),
-        ("WIN", "请按下 '主页/Start' 键"),
-        ("LS", "请按下 '左摇杆' (L3)"),
-        ("RS", "请按下 '右摇杆' (R3)"),
-        ("lt", "请完全扣下 '左扳机' (L2)"),
-        ("rt", "请完全扣下 '右扳机' (R2)"),
-        ("lx", "请将 '左摇杆' 水平移动到底"),
-        ("ly", "请将 '左摇杆' 垂直移动到底"),
-        ("rx", "请将 '右摇杆' 水平移动到底"),
-        ("ry", "请将 '右摇杆' 垂直移动到底"),
-        ("dpad", "请按下 '十字键' 的任意方向")
+        ("A", "Press the 'A' button (bottom face button)"),
+        ("B", "Press the 'B' button (right face button)"),
+        ("X", "Press the 'X' button (left face button)"),
+        ("Y", "Press the 'Y' button (top face button)"),
+        ("LB", "Press the 'Left Bumper' (L1)"),
+        ("RB", "Press the 'Right Bumper' (R1)"),
+        ("MENU", "Press the 'Menu / Back / Select' button"),
+        ("HOME", "Press the 'Home / Start' button"),
+        ("LS", "Press the 'Left Stick' button (L3)"),
+        ("RS", "Press the 'Right Stick' button (R3)"),
+        ("lt", "Fully press the 'Left Trigger' (L2)"),
+        ("rt", "Fully press the 'Right Trigger' (R2)"),
+        ("lx", "Move the 'Left Stick' fully HORIZONTALLY"),
+        ("ly", "Move the 'Left Stick' fully VERTICALLY"),
+        ("rx", "Move the 'Right Stick' fully HORIZONTALLY"),
+        ("ry", "Move the 'Right Stick' fully VERTICALLY"),
+        ("DPAD_UP", "Press the 'D-Pad UP' direction"),
+        ("DPAD_DOWN", "Press the 'D-Pad DOWN' direction"),
+        ("DPAD_LEFT", "Press the 'D-Pad LEFT' direction"),
+        ("DPAD_RIGHT", "Press the 'D-Pad RIGHT' direction")
     ]
-
+    
     mapping = {}
+    dpad_inputs = {}
     task_i = 0
     selected_joystick_id = None
-    output_filename = None # <--- 新增: 用于存储动态生成的文件名
+    output_filename = None
     done = False
+    dpad_analysis_pending = True
 
-    print("手柄映射工具已启动。请查看弹出的窗口并按提示操作。")
+    print("Gamepad Mapping Tool started. Please follow the instructions in the window.")
 
     while not done:
-        # --- 事件处理循环 ---
+        # --- Event Handling Loop (这部分代码与上一版相同，无需修改) ---
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
-
-            # --- 新增: 监听键盘事件以实现“跳过”功能 ---
             if event.type == pygame.KEYDOWN:
                 if event.key == SKIP_KEY and selected_joystick_id is not None and task_i < len(tasks):
-                    key, msg = tasks[task_i]
-                    mapping[key] = None  # 将跳过的映射记为 None
-                    print(f"  - 已跳过 '{key}'")
+                    key, _ = tasks[task_i]
+                    if key.startswith("DPAD"): dpad_inputs[key] = None
+                    else: mapping[key] = None
+                    print(f"  - Skipped '{key}'")
                     task_i += 1
-
             if event.type == pygame.JOYDEVICEADDED:
                 joy = pygame.joystick.Joystick(event.device_index)
                 joysticks[joy.get_instance_id()] = joy
-                print(f"检测到手柄: {joy.get_name()}")
-
+                print(f"Gamepad connected: {joy.get_name()}")
             if event.type == pygame.JOYDEVICEREMOVED:
-                print(f"手柄 (ID: {event.instance_id}) 已断开")
-                if event.instance_id in joysticks:
-                    del joysticks[event.instance_id]
-                # 如果断开的是正在映射的手柄，则重置状态
+                print(f"Gamepad (ID: {event.instance_id}) disconnected")
+                if event.instance_id in joysticks: del joysticks[event.instance_id]
                 if event.instance_id == selected_joystick_id:
-                    selected_joystick_id = None
-                    task_i = 0
-                    mapping = {}
-                    output_filename = None
-                    print("当前映射的手柄已断开，请重新开始。")
-
-            # 步骤1: 等待用户选择一个手柄
-            if selected_joystick_id is None and len(joysticks) > 0:
+                    selected_joystick_id, task_i, mapping, output_filename, dpad_inputs = None, 0, {}, None, {}
+                    print("The gamepad being mapped has been disconnected. Please restart.")
+            if selected_joystick_id is None and joysticks:
                 if (event.type == pygame.JOYBUTTONDOWN or
                    (event.type == pygame.JOYAXISMOTION and abs(event.value) > 0.8) or
                    (event.type == pygame.JOYHATMOTION and event.value != (0, 0))):
                     selected_joystick_id = event.instance_id
                     mapping['name'] = joysticks[selected_joystick_id].get_name()
-                    
-                    # <--- 修改: 根据手柄名称生成文件名
                     output_filename = sanitize_filename(mapping['name'])
-                    
-                    print(f"开始为手柄 '{mapping['name']}' 映射...")
-                    print(f"配置文件将保存为: {output_filename}")
+                    print(f"Starting mapping for: '{mapping['name']}'")
+                    print(f"Configuration will be saved to: {output_filename}")
                 continue
-
-            # 步骤2: 执行映射任务
             if selected_joystick_id is not None and task_i < len(tasks):
-                if not hasattr(event, 'instance_id') or event.instance_id != selected_joystick_id:
-                    continue
-
-                key, msg = tasks[task_i]
-                detected = None
-
-                # 检测输入类型
-                if event.type == pygame.JOYBUTTONDOWN:
-                    detected = ("button", event.button)
-                elif event.type == pygame.JOYAXISMOTION and abs(event.value) > 0.8:
-                    detected = ("axis", event.axis)
-                elif event.type == pygame.JOYHATMOTION and event.value != (0, 0):
-                    detected = ("hat", event.hat)
-
-                # 如果检测到新的、未被映射过的输入，则记录并进入下一步
-                if detected and detected not in mapping.values():
-                    mapping[key] = detected
-                    print(f"  - 已映射 '{key}' -> {detected}")
+                if not hasattr(event, 'instance_id') or event.instance_id != selected_joystick_id: continue
+                key, _ = tasks[task_i]
+                detected_input = None
+                if event.type == pygame.JOYBUTTONDOWN: detected_input = ("button", event.button)
+                elif event.type == pygame.JOYAXISMOTION and abs(event.value) > 0.8: detected_input = ("axis", event.axis)
+                elif event.type == pygame.JOYHATMOTION and event.value != (0, 0): detected_input = ("hat", event.hat, event.value)
+                is_already_mapped = any(val == detected_input for k, val in mapping.items() if not k.startswith("DPAD"))
+                if detected_input and not is_already_mapped:
+                    print(f"  - Detected for '{key}' -> {detected_input}")
+                    if key.startswith("DPAD"): dpad_inputs[key] = detected_input
+                    else: mapping[key] = detected_input
                     task_i += 1
 
-        # --- 屏幕渲染 ---
+        # --- D-PAD MAPPING ANALYSIS (<<< 主要修改区域 >>>) ---
+        if task_i >= len(tasks) and dpad_analysis_pending:
+            dpad_analysis_pending = False
+            print("\n--- Analyzing D-Pad Inputs ---")
+
+            hat_indices = {v[1] for k, v in dpad_inputs.items() if v and v[0] == 'hat'}
+            axis_indices = {v[1] for k, v in dpad_inputs.items() if v and v[0] == 'axis'}
+            
+            # 1. 检查是否为标准的 Hat Switch
+            if len(dpad_inputs) == 4 and all(v and v[0] == 'hat' for v in dpad_inputs.values()) and len(hat_indices) == 1:
+                hat_index = hat_indices.pop()
+                mapping['dpad'] = ('hat', hat_index)
+                print(f"Result: D-Pad is a standard HAT ({hat_index}). Mapping as 'dpad'. Fully compatible.")
+            
+            # 2. <<< 新增: 检查是否为双轴 D-Pad >>>
+            elif len(dpad_inputs) == 4 and all(v and v[0] == 'axis' for v in dpad_inputs.values()) and len(axis_indices) == 2:
+                y_axis = dpad_inputs.get("DPAD_UP", (None, -1))[1]
+                x_axis = dpad_inputs.get("DPAD_LEFT", (None, -1))[1]
+                # 验证 UP/DOWN 和 LEFT/RIGHT 是否分别在同一个轴上
+                if (y_axis == dpad_inputs.get("DPAD_DOWN", (None, -2))[1] and
+                    x_axis == dpad_inputs.get("DPAD_RIGHT", (None, -3))[1] and
+                    y_axis != x_axis and y_axis != -1 and x_axis != -1):
+                    mapping['dpad'] = {"type": "axes", "y_axis": y_axis, "x_axis": x_axis}
+                    print(f"Result: D-Pad uses two axes (Y-axis: {y_axis}, X-axis: {x_axis}). Compatible with updated GenericController.")
+                else:
+                    print("Result: D-Pad uses axes, but axis assignment is inconsistent. Skipping.")
+
+            # 3. 检查是否为独立按键
+            elif len(dpad_inputs) > 0 and all(v is None or v[0] == 'button' for v in dpad_inputs.values()):
+                print("Result: D-Pad uses separate buttons.")
+                print("WARNING: GenericController class needs modification to support button-based D-Pads.")
+                for key, val in dpad_inputs.items():
+                    if val: mapping[key] = val
+            
+            # 4. 其他情况
+            else:
+                print("Result: D-Pad inputs are inconsistent or use an unsupported type. Skipping D-Pad mapping.")
+
+        # --- Screen Rendering & Save Logic (这部分代码与上一版相同，无需修改) ---
         screen.fill((30, 30, 30))
         text_print.reset()
-
-        if len(joysticks) == 0:
-            text_print.tprint(screen, "请连接一个手柄...")
-        elif selected_joystick_id is None:
-            text_print.tprint(screen, "请按您想映射的手柄上的任意键来开始。")
+        if not joysticks: text_print.tprint(screen, "Please connect a gamepad...")
+        elif selected_joystick_id is None: text_print.tprint(screen, "Press any button on the gamepad you want to map.")
         elif task_i < len(tasks):
-            text_print.tprint(screen, f"正在映射: {mapping.get('name', '')}")
+            text_print.tprint(screen, f"Mapping: {mapping.get('name', '')}")
             text_print.tprint(screen, "-"*50)
-            text_print.tprint(screen, f"步骤 {task_i + 1}/{len(tasks)}:")
+            text_print.tprint(screen, f"Step {task_i + 1}/{len(tasks)}:")
             text_print.tprint(screen, f"--> {tasks[task_i][1]}")
             text_print.tprint(screen, "")
-            # <--- 新增: 屏幕上显示跳过提示
-            text_print.tprint(screen, f"(或按键盘上的 'S' 键跳过此项)")
+            text_print.tprint(screen, f"(Press '{pygame.key.name(SKIP_KEY).upper()}' on keyboard to skip)")
         else:
-            text_print.tprint(screen, "映射完成!")
-            # <--- 修改: 显示动态文件名
-            text_print.tprint(screen, f"将保存为 '{output_filename}'。")
-            text_print.tprint(screen, "现在可以关闭此窗口。")
-
+            text_print.tprint(screen, "Mapping Complete!")
+            text_print.tprint(screen, f"Configuration will be saved to '{output_filename}'.")
+            text_print.tprint(screen, "You can now close this window.")
         pygame.display.flip()
         clock.tick(60)
 
-    # --- 保存映射文件 ---
-    # <--- 修改: 使用动态文件名进行保存
     if len(mapping) > 1 and output_filename:
         try:
+            final_mapping = {k: list(v) if isinstance(v, tuple) else v for k, v in mapping.items()}
             with open(output_filename, 'w', encoding='utf-8') as f:
-                json.dump(mapping, f, indent=4, ensure_ascii=False)
-            print(f"\n映射成功保存到 {output_filename}")
+                json.dump(final_mapping, f, indent=4, ensure_ascii=False)
+            print(f"\nMapping successfully saved to {output_filename}")
         except Exception as e:
-            print(f"\n错误：无法保存映射文件: {e}")
-
+            print(f"\nError: Could not save mapping file: {e}")
     pygame.quit()
-
 
 if __name__ == '__main__':
     run_mapping_tool()

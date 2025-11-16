@@ -16,32 +16,33 @@
         "button",
         2
     ],
-    "LB": null,
-    "RB": null,
+    "LB": [
+        "button",
+        9
+    ],
+    "RB": [
+        "button",
+        10
+    ],
     "MENU": [
         "button",
         4
     ],
-    "WIN": [
+    "HOME": [
         "button",
         6
     ],
     "LS": null,
     "RS": null,
-    "lt": [
-        "button",
-        9
-    ],
-    "rt": [
-        "button",
-        10
-    ],
+    "lt": null,
+    "rt": null,
     "lx": null,
     "ly": null,
     "rx": null,
     "ry": null,
-    "dpad": [
-        "axis",
-        1
-    ]
+    "dpad": {
+        "type": "axes",
+        "y_axis": 1,
+        "x_axis": 0
+    }
 }

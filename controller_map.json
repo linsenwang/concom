@@ -1,47 +1,63 @@
 {
     "name": "Nintendo Switch Pro Controller",
-    "A": [
-        "button",
-        1
-    ],
-    "B": [
-        "button",
-        0
-    ],
-    "X": [
-        "button",
-        3
-    ],
-    "Y": [
-        "button",
-        2
-    ],
+    "A": {
+        "type": "button",
+        "index": 1
+    },
+    "B": {
+        "type": "button",
+        "index": 0
+    },
+    "X": {
+        "type": "button",
+        "index": 3
+    },
+    "Y": {
+        "type": "button",
+        "index": 2
+    },
     "LB": null,
     "RB": null,
-    "MENU": [
-        "button",
-        4
-    ],
-    "WIN": [
-        "button",
-        6
-    ],
+    "MENU": {
+        "type": "button",
+        "index": 4
+    },
+    "HOME": {
+        "type": "button",
+        "index": 6
+    },
     "LS": null,
     "RS": null,
-    "lt": [
-        "button",
-        9
-    ],
-    "rt": [
-        "button",
-        10
-    ],
-    "lx": null,
-    "ly": null,
-    "rx": null,
-    "ry": null,
-    "dpad": [
-        "axis",
-        1
-    ]
+    "LT": {
+        "type": "button",
+        "index": 9
+    },
+    "RT": {
+        "type": "button",
+        "index": 10
+    },
+    "LX": null,
+    "LY": null,
+    "RX": null,
+    "RY": null,
+    "DPAD_UP": {
+        "type": "axis",
+        "index": 1,
+        "value": -1
+    },
+    "DPAD_DOWN": {
+        "type": "axis",
+        "index": 1,
+        "value": 1
+    },
+    "DPAD_LEFT": {
+        "type": "axis",
+        "index": 0,
+        "value": -1
+    },
+    "DPAD_RIGHT": {
+        "type": "axis",
+        "index": 0,
+        "value": 1
+    }
 }
