@@ -3,8 +3,8 @@ from pynput.mouse import Button
 from pynput.keyboard import Key
 
 ACTION_CONFIG = [
-MouseMoveAction(x_axis='lx', y_axis='ly', sensitivity=15, deadzone=0.15), 
-MouseMoveAction(x_axis='rx', y_axis='ry', sensitivity=15, deadzone=0.15), 
+MouseMoveAction(x_axis='lx', y_axis='ly', sensitivity=30, deadzone=0.15), 
+MouseMoveAction(x_axis='rx', y_axis='ry', sensitivity=30, deadzone=0.15), 
 ClickAction(controller_button='A', mouse_button=Button.left), 
 ClickAction(controller_button='B', mouse_button=Button.right), 
 AnalogAsButtonScrollAction(axis_name='lt', threshold=0.01, scroll_speed=-15, initial_delay=0.3, repeat_rate=0.05), 

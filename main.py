@@ -21,7 +21,8 @@ try:
 except Exception:
     pass
 
-from run_mapping_tool import run_mapping_tool, MAPPING_FILE
+MAPPING_FILE = "controller_map.json"
+from run_mapping_tool import run_mapping_tool
 from GenericController import GenericController
 from Action import *
 from ACTION_CONFIG import ACTION_CONFIG
@@ -62,10 +63,10 @@ def main_controller_loop(custom_mapping):
                     last_state = None
                 
                 # 在等待激活时减少CPU占用
-                time.sleep(0.1)
+                time.sleep(0.5)
             
             # 在每次循环后短暂休眠，以避免CPU占用过高
-            time.sleep(0.005)
+            time.sleep(0.008)
 
     except KeyboardInterrupt: print("\n正在退出。")
     except Exception as e: print(f"\n发生错误: {e}")

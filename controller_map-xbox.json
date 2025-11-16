@@ -1,0 +1,71 @@
+{
+    "name": "Controller",
+    "A": [
+        "button",
+        0
+    ],
+    "B": [
+        "button",
+        1
+    ],
+    "X": [
+        "button",
+        2
+    ],
+    "Y": [
+        "button",
+        3
+    ],
+    "LB": [
+        "button",
+        4
+    ],
+    "RB": [
+        "button",
+        5
+    ],
+    "MENU": [
+        "button",
+        8
+    ],
+    "WIN": [
+        "button",
+        10
+    ],
+    "LS": [
+        "button",
+        6
+    ],
+    "RS": [
+        "button",
+        7
+    ],
+    "lt": [
+        "axis",
+        2
+    ],
+    "rt": [
+        "axis",
+        5
+    ],
+    "lx": [
+        "axis",
+        0
+    ],
+    "ly": [
+        "axis",
+        1
+    ],
+    "rx": [
+        "axis",
+        3
+    ],
+    "ry": [
+        "axis",
+        4
+    ],
+    "dpad": [
+        "hat",
+        0
+    ]
+}
