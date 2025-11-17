@@ -4,16 +4,38 @@ class Action:
     def update(self, state, last_state, mouse, keyboard):
         pass
 
+import Quartz
+def get_screen_size():
+    main = Quartz.CGDisplayBounds(Quartz.CGMainDisplayID())
+    return int(main.size.width), int(main.size.height)
+
+SCREEN_W, SCREEN_H = get_screen_size()
+
 class MouseMoveAction(Action):
     def __init__(self, x_axis, y_axis, sensitivity, deadzone):
-        self.x_axis, self.y_axis, self.sensitivity, self.deadzone = x_axis, y_axis, sensitivity, deadzone
+        self.x_axis = x_axis
+        self.y_axis = y_axis
+        self.sensitivity = sensitivity
+        self.deadzone = deadzone
 
     def update(self, state, last_state, mouse, keyboard):
         lx, ly = state[self.x_axis], state[self.y_axis]
+
         if abs(lx) < self.deadzone: lx = 0
         if abs(ly) < self.deadzone: ly = 0
+
         if lx != 0 or ly != 0:
-            mouse.move((lx ** 3) * self.sensitivity, -(ly ** 3) * self.sensitivity)
+            dx = (lx ** 3) * self.sensitivity
+            dy = -(ly ** 3) * self.sensitivity
+
+            # 当前绝对位置
+            x, y = mouse.position
+
+            # 新位置（做钳制）
+            new_x = min(max(0, x + dx), SCREEN_W - 1)
+            new_y = min(max(0, y + dy), SCREEN_H - 1)
+
+            mouse.position = (new_x, new_y)
 
 class ClickAction(Action):
     def __init__(self, controller_button, mouse_button): self.controller_button, self.mouse_button = controller_button, mouse_button

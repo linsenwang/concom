@@ -21,7 +21,9 @@ try:
 except Exception:
     pass
 
-MAPPING_FILE = "map_Nintendo_Switch_Pro_Controller.json"
+# MAPPING_FILE = "map_Nintendo_Switch_Pro_Controller.json"
+# MAPPING_FILE = "map_Controller.json"
+MAPPING_FILE = "map_Xbox_Series_X_Controller.json"
 from run_mapping_tool import run_mapping_tool
 from GenericController import GenericController
 from Action import *
@@ -31,6 +33,8 @@ from ACTION_CONFIG import ACTION_CONFIG
 # ======================== 主程序与配置 (不变) =================================
 # ==============================================================================
 def main_controller_loop(custom_mapping):
+    print("准备启动手柄控制... 您有2秒钟时间切换到目标窗口。")
+    time.sleep(2)
     controller = None
     try:
         controller = GenericController(custom_mapping)
