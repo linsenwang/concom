@@ -78,6 +78,10 @@ def main_controller_loop(custom_mapping):
         while True:
             state = controller.read()
             if state:
+                if state.get("status") == "disconnected":
+                    print("\n手柄已断开，正在重新检测...")
+                    return 'disconnected'
+
                 if not is_active:
                     is_active = True
                     print("手柄控制已激活。按 Ctrl+C 退出。")
@@ -105,22 +109,37 @@ def main_controller_loop(custom_mapping):
             # 在每次循环后短暂休眠，以避免CPU占用过高
             time.sleep(0.008)
 
-    except KeyboardInterrupt: print("\n正在退出。")
-    except Exception as e: print(f"\n发生错误: {e}")
+    except KeyboardInterrupt:
+        print("\n正在退出。")
+        return 'exit'
+    except Exception as e:
+        print(f"\n发生错误: {e}")
+        return 'error'
     finally:
-        if controller: controller.close()
+        if controller:
+            controller.close()
 
 if __name__ == "__main__":
     if IS_MAPPING_MODE:
         run_mapping_tool()
     else:
-        MAPPING_FILE = find_mapping_file()
-        if MAPPING_FILE:
-            try:
-                with open(MAPPING_FILE, 'r') as f: mapping_data = json.load(f)
-                print(f"已成功从 '{MAPPING_FILE}' 加载手柄映射。")
-                main_controller_loop(mapping_data)
-            except FileNotFoundError:
-                print("="*60 + f"\n错误：找不到手柄映射文件 '{MAPPING_FILE}'\n" + "请为此手柄运行一次映射工具以创建映射文件：\n" + f"    python {os.path.basename(__file__)} --map\n" + "="*60)
-            except Exception as e:
-                print(f"启动时发生错误: {e}")
+        while True:
+            MAPPING_FILE = find_mapping_file()
+            if MAPPING_FILE:
+                try:
+                    with open(MAPPING_FILE, 'r') as f:
+                        mapping_data = json.load(f)
+                    print(f"已成功从 '{MAPPING_FILE}' 加载手柄映射。")
+                    
+                    result = main_controller_loop(mapping_data)
+                    if result == 'exit':
+                        break
+
+                except FileNotFoundError:
+                    print("="*60 + f"\n错误：找不到手柄映射文件 '{MAPPING_FILE}'\n" + "请为此手柄运行一次映射工具以创建映射文件：\n" + f"    python {os.path.basename(__file__)} --map\n" + "="*60)
+                    time.sleep(5)
+                except Exception as e:
+                    print(f"启动时发生错误: {e}")
+                    time.sleep(5)
+            else:
+                time.sleep(5)
