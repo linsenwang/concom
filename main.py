@@ -6,6 +6,8 @@ import sys
 import json
 import time
 import ctypes
+import re
+import pygame
 
 # --- 模式检测 ---
 IS_MAPPING_MODE = '--map' in sys.argv
@@ -21,9 +23,6 @@ try:
 except Exception:
     pass
 
-# MAPPING_FILE = "map_Nintendo_Switch_Pro_Controller.json"
-# MAPPING_FILE = "map_Controller.json"
-MAPPING_FILE = "map_Xbox_Series_X_Controller.json"
 from run_mapping_tool import run_mapping_tool
 from GenericController import GenericController
 from Action import *
@@ -32,9 +31,43 @@ from ACTION_CONFIG import ACTION_CONFIG
 # ==============================================================================
 # ======================== 主程序与配置 (不变) =================================
 # ==============================================================================
+def sanitize_filename(name):
+    """Generate a safe filename from the device name."""
+    s = re.sub(r'[^\w\s-]', '', name).strip()
+    s = re.sub(r'[-\s]+', '_', s)
+    return f"map_{s}.json"
+
+def find_mapping_file():
+    """
+    Initializes pygame to detect the first connected controller,
+    generates the mapping filename, and then quits pygame.
+    """
+    # Hide the pygame support prompt
+    os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+    
+    print("正在检测手柄...")
+    pygame.init()
+    pygame.joystick.init()
+
+    if pygame.joystick.get_count() == 0:
+        print("未检测到手柄。请连接一个手柄然后重试。")
+        pygame.quit()
+        return None
+
+    joystick = pygame.joystick.Joystick(0)
+    controller_name = joystick.get_name()
+    mapping_file = sanitize_filename(controller_name)
+    
+    print(f"检测到手柄: '{controller_name}'")
+    print(f"将使用映射文件: '{mapping_file}'")
+    
+    pygame.joystick.quit()
+    pygame.quit()
+    
+    return mapping_file
+
 def main_controller_loop(custom_mapping):
-    print("准备启动手柄控制... 您有2秒钟时间切换到目标窗口。")
-    time.sleep(2)
+    print("准备启动手柄控制...")
     controller = None
     try:
         controller = GenericController(custom_mapping)
@@ -81,11 +114,13 @@ if __name__ == "__main__":
     if IS_MAPPING_MODE:
         run_mapping_tool()
     else:
-        try:
-            with open(MAPPING_FILE, 'r') as f: mapping_data = json.load(f)
-            print(f"已成功从 '{MAPPING_FILE}' 加载手柄映射。")
-            main_controller_loop(mapping_data)
-        except FileNotFoundError:
-            print("="*60 + f"\n错误：找不到手柄映射文件 '{MAPPING_FILE}'。\n" + "请使用 --map 参数运行一次以创建映射文件：\n" + f"    python {os.path.basename(__file__)} --map\n" + "="*60)
-        except Exception as e:
-            print(f"启动时发生错误: {e}")
+        MAPPING_FILE = find_mapping_file()
+        if MAPPING_FILE:
+            try:
+                with open(MAPPING_FILE, 'r') as f: mapping_data = json.load(f)
+                print(f"已成功从 '{MAPPING_FILE}' 加载手柄映射。")
+                main_controller_loop(mapping_data)
+            except FileNotFoundError:
+                print("="*60 + f"\n错误：找不到手柄映射文件 '{MAPPING_FILE}'\n" + "请为此手柄运行一次映射工具以创建映射文件：\n" + f"    python {os.path.basename(__file__)} --map\n" + "="*60)
+            except Exception as e:
+                print(f"启动时发生错误: {e}")
