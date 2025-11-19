@@ -7,8 +7,9 @@ ACTION_CONFIG = [
 
 # 这会拦截 'RIGHT' 的原功能，并标记 'X' 被消费
 ComboKeyAction(mod_btn='X', trigger_btn='RIGHT', key=Key.right, modifier=[Key.cmd, Key.alt]),
-
 ComboKeyAction(mod_btn='X', trigger_btn='LEFT', key=Key.left, modifier=[Key.cmd, Key.alt]),
+ComboKeyAction(mod_btn='X', trigger_btn='UP', key=Key.tab, modifier=Key.shift),
+ComboKeyAction(mod_btn='X', trigger_btn='DOWN', key=Key.tab),
 
 # ================= 2. 摇杆与鼠标移动 (不受组合键影响) =================
 MouseMoveAction(x_axis='lx', y_axis='ly', sensitivity=30, deadzone=0.15), 
@@ -40,7 +41,7 @@ KeyboardAction(controller_button='Y', key=Key.right, modifier=Key.cmd),
 KeyboardAction(controller_button='RIGHT', key=Key.right), 
 KeyboardAction(controller_button='LEFT', key=Key.left), 
 
-KeyboardAction(controller_button='WIN', key=Key.enter), 
+KeyboardAction(controller_button='HOME', key=Key.enter), 
 KeyboardAction(controller_button='MENU', key='q', modifier=[Key.cmd, Key.ctrl]), 
 KeyboardAction(controller_button='RS', key='w', modifier=Key.cmd),
 ]
