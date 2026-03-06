@@ -2,6 +2,8 @@ from Action import *
 from pynput.mouse import Button
 from pynput.keyboard import Key
 
+rate = 0.8
+
 ACTION_CONFIG = [
 # ================= 1. 组合键逻辑 (必须放在最前面) =================
 
@@ -12,8 +14,8 @@ ComboKeyAction(mod_btn='X', trigger_btn='UP', key=Key.tab, modifier=Key.shift),
 ComboKeyAction(mod_btn='X', trigger_btn='DOWN', key=Key.tab),
 
 # ================= 2. 摇杆与鼠标移动 (不受组合键影响) =================
-MouseMoveAction(x_axis='lx', y_axis='ly', sensitivity=30, deadzone=0.15), 
-MouseMoveAction(x_axis='rx', y_axis='ry', sensitivity=30, deadzone=0.15), 
+MouseMoveAction(x_axis='lx', y_axis='ly', sensitivity=30 * rate, deadzone=0.15), 
+MouseMoveAction(x_axis='rx', y_axis='ry', sensitivity=30 * rate, deadzone=0.15), 
 
 # ================= 3. 普通点击与滚动 =================
 ClickAction(controller_button='A', mouse_button=Button.left), 
@@ -42,6 +44,7 @@ KeyboardAction(controller_button='RIGHT', key=Key.right),
 KeyboardAction(controller_button='LEFT', key=Key.left), 
 
 KeyboardAction(controller_button='HOME', key=Key.enter), 
-KeyboardAction(controller_button='MENU', key='q', modifier=[Key.cmd, Key.ctrl]), 
+# KeyboardAction(controller_button='MENU', key='q', modifier=[Key.cmd, Key.ctrl]), 
+KeyboardAction(controller_button='MENU', key='w', modifier=Key.cmd),
 KeyboardAction(controller_button='RS', key='w', modifier=Key.cmd),
 ]

@@ -1,0 +1,83 @@
+{
+    "name": "Xbox Series X Controller",
+    "A": [
+        "button",
+        0
+    ],
+    "B": [
+        "button",
+        1
+    ],
+    "X": [
+        "button",
+        2
+    ],
+    "Y": [
+        "button",
+        3
+    ],
+    "LB": [
+        "button",
+        9
+    ],
+    "RB": [
+        "button",
+        10
+    ],
+    "MENU": [
+        "button",
+        4
+    ],
+    "HOME": [
+        "button",
+        6
+    ],
+    "LS": [
+        "button",
+        7
+    ],
+    "RS": [
+        "button",
+        8
+    ],
+    "lt": [
+        "axis",
+        4
+    ],
+    "rt": [
+        "axis",
+        5
+    ],
+    "lx": [
+        "axis",
+        0
+    ],
+    "ly": [
+        "axis",
+        1
+    ],
+    "rx": [
+        "axis",
+        2
+    ],
+    "ry": [
+        "axis",
+        3
+    ],
+    "DPAD_UP": [
+        "button",
+        11
+    ],
+    "DPAD_DOWN": [
+        "button",
+        12
+    ],
+    "DPAD_LEFT": [
+        "button",
+        13
+    ],
+    "DPAD_RIGHT": [
+        "button",
+        14
+    ]
+}

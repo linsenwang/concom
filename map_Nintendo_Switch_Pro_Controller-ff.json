@@ -1,0 +1,55 @@
+{
+    "name": "Nintendo Switch Pro Controller",
+    "A": [
+        "button",
+        1
+    ],
+    "B": [
+        "button",
+        0
+    ],
+    "X": [
+        "button",
+        3
+    ],
+    "Y": [
+        "button",
+        2
+    ],
+    "LB": [
+        "button",
+        9
+    ],
+    "RB": [
+        "button",
+        10
+    ],
+    "MENU": [
+        "button",
+        4
+    ],
+    "HOME": [
+        "button",
+        6
+    ],
+    "LS": null,
+    "RS": null,
+    "lt": [
+        "axis",
+        4
+    ],
+    "rt": [
+        "axis",
+        5
+    ],
+    "lx": [
+        "axis",
+        0
+    ],
+    "ly": [
+        "axis",
+        1
+    ],
+    "rx": null,
+    "ry": null
+}

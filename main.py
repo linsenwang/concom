@@ -9,6 +9,10 @@ import ctypes
 import re
 import pygame # 提前导入
 
+pygame.init()
+pygame.display.init()
+pygame.display.set_allow_screensaver(True)
+
 # --- 模式检测 ---
 IS_MAPPING_MODE = '--map' in sys.argv
 
