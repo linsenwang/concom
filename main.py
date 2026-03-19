@@ -46,22 +46,35 @@ def sanitize_filename(name):
     s = re.sub(r'[-\s]+', '_', s)
     return f"map_{s}.json"
 
-def setup_and_find_config():
+def setup_and_find_config(timeout_seconds=180):
     """
     初始化 Pygame，等待手柄连接，并返回(映射数据, 映射文件名, 设备索引)。
     不会退出 Pygame。
+    
+    Args:
+        timeout_seconds: 等待手柄连接的超时时间（秒），默认3分钟
     """
     print("正在初始化系统...")
     pygame.init()
     pygame.joystick.init()
 
-    print("等待手柄连接...", end="", flush=True)
+    print(f"等待手柄连接...（{timeout_seconds}秒后自动关闭）", end="", flush=True)
     
+    start_time = time.time()
     # 简单的等待循环
     while pygame.joystick.get_count() == 0:
         pygame.event.pump() # 处理内部事件，防止无响应
         time.sleep(0.5)
-        # print(".", end="", flush=True)
+        
+        # 检查是否超时
+        if time.time() - start_time > timeout_seconds:
+            print(f"\n⏰ 等待超时（{timeout_seconds}秒），未检测到手柄连接，自动关闭。")
+            pygame.quit()
+            sys.exit(0)  # 正常退出，不会触发 PM2 重启
+        
+        # 每10秒打印一个点提示用户
+        if int(time.time() - start_time) % 10 == 0:
+            print(".", end="", flush=True)
     
     print("\n检测到手柄连接！")
     
