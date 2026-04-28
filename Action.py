@@ -1,4 +1,6 @@
 import time
+import socket
+import subprocess
 
 class Action:
     def update(self, state, last_state, mouse, keyboard):
@@ -137,3 +139,65 @@ class SmartKeyAction(Action):
 
             # 重置消费状态，为下一次按下做准备
             SHARED_CONSUMED_STATE[self.button] = False
+
+class UDPCapsWriterAction(Action):
+    """按住开始录音，松开发送识别（对讲机模式）
+
+    通过 AppleScript 调用 Hammerspoon，让 Hammerspoon 显示悬浮窗并控制 CapsWriter。
+    Smart 逻辑：当 X 被用作组合键修饰键时，不触发录音。
+    支持 X + 方向键 的组合键功能（切桌面、Tab 切换）。
+    """
+    def __init__(self, controller_button, addr='127.0.0.1', port=6018):
+        self.controller_button = controller_button
+        # addr/port 保留兼容性，但实际通过 Hammerspoon 中转
+        self.addr = addr
+        self.port = port
+        self._recording = False
+        self._prev_consumed = False
+
+    def _call_hammerspoon(self, func_name):
+        """通过 osascript 调用 Hammerspoon 的全局 Lua 函数"""
+        script = f'tell application "Hammerspoon" to execute lua code "{func_name}()"'
+        try:
+            subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True,
+                timeout=2
+            )
+        except Exception as e:
+            print(f"[CapsWriter] Hammerspoon call failed ({func_name}): {e}")
+
+    def update(self, state, last_state, mouse, keyboard):
+        is_pressed = state['buttons'].get(self.controller_button, False)
+        was_pressed = last_state['buttons'].get(self.controller_button, False) if last_state else False
+
+        is_consumed = SHARED_CONSUMED_STATE.get(self.controller_button, False)
+
+        # 如果正在录音，且 X 刚被标记为消费（用于组合键），则取消录音
+        if self._recording and is_consumed and not self._prev_consumed:
+            self._call_hammerspoon("CapsWriterGamepadStop")
+            print(f"[CapsWriter] STOP via Hammerspoon (cancelled by combo)")
+            self._recording = False
+
+        # 按下边缘检测
+        if is_pressed and not was_pressed:
+            if not is_consumed:
+                self._call_hammerspoon("CapsWriterGamepadStart")
+                print(f"[CapsWriter] START via Hammerspoon")
+                self._recording = True
+            else:
+                print(f"[CapsWriter] START ignored (consumed by combo)")
+                self._recording = False
+
+        # 松开边缘检测
+        elif not is_pressed and was_pressed:
+            if self._recording:
+                self._call_hammerspoon("CapsWriterGamepadStop")
+                print(f"[CapsWriter] STOP via Hammerspoon")
+                self._recording = False
+
+        self._prev_consumed = is_consumed
+
+        # 在 X 松开时重置消费状态，确保下次单独按 X 能正常工作
+        if not is_pressed and was_pressed:
+            SHARED_CONSUMED_STATE.pop(self.controller_button, None)

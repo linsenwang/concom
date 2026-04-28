@@ -31,9 +31,9 @@ ScrollAction(controller_button='DOWN', scroll_speed=15, initial_delay=0.4, repea
 
 # ================= 4. 按键映射 (注意 X, LEFT, RIGHT 的变化) =================
 
-# [Smart] X 键：原本的 KeyboardAction 换成 SmartKeyAction
-# 只有在松开 X 且没触发过切桌面功能时，才执行 Cmd+Left
-SmartKeyAction(controller_button='X', key=Key.left, modifier=Key.cmd), 
+# [Smart] X 键：按住开始录音，松开结束识别（对讲机模式）
+# 保留 X + 方向键 的组合键功能（切桌面、Tab 切换）
+UDPCapsWriterAction(controller_button='X'), 
 
 # Y 键保持不变
 KeyboardAction(controller_button='Y', key=Key.right, modifier=Key.cmd), 
@@ -47,4 +47,6 @@ KeyboardAction(controller_button='HOME', key=Key.enter),
 # KeyboardAction(controller_button='MENU', key='q', modifier=[Key.cmd, Key.ctrl]), 
 KeyboardAction(controller_button='MENU', key='w', modifier=Key.cmd),
 KeyboardAction(controller_button='RS', key='w', modifier=Key.cmd),
+
+
 ]
