@@ -36,7 +36,8 @@ ScrollAction(controller_button='DOWN', scroll_speed=15, initial_delay=0.4, repea
 UDPCapsWriterAction(controller_button='X'), 
 
 # Y 键保持不变
-KeyboardAction(controller_button='Y', key=Key.right, modifier=Key.cmd), 
+# KeyboardAction(controller_button='Y', key=Key.right, modifier=Key.cmd), 
+KeyboardAction(controller_button='Y', key=Key.enter), 
 
 # [普通] RIGHT 和 LEFT
 # 如果上面触发了 X+RIGHT，这里的 RIGHT 会被 ComboKeyAction 屏蔽，不会触发

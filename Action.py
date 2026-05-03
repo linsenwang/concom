@@ -7,11 +7,31 @@ class Action:
         pass
 
 import Quartz
-def get_screen_size():
-    main = Quartz.CGDisplayBounds(Quartz.CGMainDisplayID())
-    return int(main.size.width), int(main.size.height)
 
-SCREEN_W, SCREEN_H = get_screen_size()
+def get_virtual_screen_bounds():
+    """获取所有活跃显示器的并集边界，支持多屏幕环境。"""
+    max_displays = 32
+    (error, display_ids, count) = Quartz.CGGetActiveDisplayList(max_displays, None, None)
+    if error != 0 or count == 0:
+        # 回退到主屏幕
+        main = Quartz.CGDisplayBounds(Quartz.CGMainDisplayID())
+        return int(main.origin.x), int(main.origin.y), int(main.origin.x + main.size.width), int(main.origin.y + main.size.height)
+    
+    min_x = float('inf')
+    min_y = float('inf')
+    max_x = float('-inf')
+    max_y = float('-inf')
+    
+    for display_id in display_ids:
+        bounds = Quartz.CGDisplayBounds(display_id)
+        min_x = min(min_x, bounds.origin.x)
+        min_y = min(min_y, bounds.origin.y)
+        max_x = max(max_x, bounds.origin.x + bounds.size.width)
+        max_y = max(max_y, bounds.origin.y + bounds.size.height)
+    
+    return int(min_x), int(min_y), int(max_x), int(max_y)
+
+SCREEN_BOUNDS = get_virtual_screen_bounds()  # (min_x, min_y, max_x, max_y)
 
 class MouseMoveAction(Action):
     def __init__(self, x_axis, y_axis, sensitivity, deadzone):
@@ -33,9 +53,9 @@ class MouseMoveAction(Action):
             # 当前绝对位置
             x, y = mouse.position
 
-            # 新位置（做钳制）
-            new_x = min(max(0, x + dx), SCREEN_W - 1)
-            new_y = min(max(0, y + dy), SCREEN_H - 1)
+            # 新位置（做钳制，使用所有屏幕的并集边界）
+            new_x = min(max(SCREEN_BOUNDS[0], x + dx), SCREEN_BOUNDS[2] - 1)
+            new_y = min(max(SCREEN_BOUNDS[1], y + dy), SCREEN_BOUNDS[3] - 1)
 
             mouse.position = (new_x, new_y)
 
