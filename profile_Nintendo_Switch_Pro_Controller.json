@@ -1,0 +1,190 @@
+{
+    "version": 2,
+    "name": "Nintendo Switch Pro Controller",
+    "hardware": {
+        "A": [
+            "button",
+            1
+        ],
+        "B": [
+            "button",
+            0
+        ],
+        "X": [
+            "button",
+            3
+        ],
+        "Y": [
+            "button",
+            2
+        ],
+        "LB": [
+            "button",
+            9
+        ],
+        "RB": [
+            "button",
+            10
+        ],
+        "MENU": [
+            "button",
+            4
+        ],
+        "HOME": [
+            "button",
+            6
+        ],
+        "dpad": {
+            "type": "axes",
+            "x_axis": 0,
+            "y_axis": 1
+        }
+    },
+    "settings": {
+        "mouse_sensitivity": 24.0,
+        "mouse_deadzone": 0.15,
+        "scroll_initial_delay": 0.3,
+        "scroll_repeat_rate": 0.05,
+        "poll_interval": 0.005
+    },
+    "layers": {
+        "default": {
+            "LEFT_STICK": {
+                "x_axis": "lx",
+                "y_axis": "ly",
+                "sensitivity": 24.0,
+                "deadzone": 0.15,
+                "kind": "mouse_move"
+            },
+            "RIGHT_STICK": {
+                "x_axis": "rx",
+                "y_axis": "ry",
+                "sensitivity": 24.0,
+                "deadzone": 0.15,
+                "kind": "mouse_move"
+            },
+            "A": {
+                "button": "left",
+                "kind": "mouse_click"
+            },
+            "B": {
+                "button": "right",
+                "kind": "mouse_click"
+            },
+            "LT": {
+                "axis": "lt",
+                "threshold": 0.01,
+                "direction": -1,
+                "speed": 15,
+                "initial_delay": 0.3,
+                "repeat_rate": 0.05,
+                "kind": "analog_scroll"
+            },
+            "RT": {
+                "axis": "rt",
+                "threshold": 0.01,
+                "direction": 1,
+                "speed": 15,
+                "initial_delay": 0.3,
+                "repeat_rate": 0.05,
+                "kind": "analog_scroll"
+            },
+            "RB": {
+                "direction": -1,
+                "speed": 15,
+                "initial_delay": 0.3,
+                "repeat_rate": 0.05,
+                "kind": "scroll"
+            },
+            "LB": {
+                "direction": 1,
+                "speed": 15,
+                "initial_delay": 0.3,
+                "repeat_rate": 0.05,
+                "kind": "scroll"
+            },
+            "UP": {
+                "direction": -1,
+                "speed": 15,
+                "initial_delay": 0.4,
+                "repeat_rate": 0.1,
+                "kind": "scroll"
+            },
+            "DOWN": {
+                "direction": 1,
+                "speed": 15,
+                "initial_delay": 0.4,
+                "repeat_rate": 0.1,
+                "kind": "scroll"
+            },
+            "X": {
+                "target_layer": "layer_X",
+                "kind": "modifier"
+            },
+            "Y": {
+                "key": "enter",
+                "modifiers": [],
+                "kind": "key"
+            },
+            "RIGHT": {
+                "key": "right",
+                "modifiers": [],
+                "kind": "key"
+            },
+            "LEFT": {
+                "key": "left",
+                "modifiers": [],
+                "kind": "key"
+            },
+            "HOME": {
+                "key": "enter",
+                "modifiers": [],
+                "kind": "key"
+            },
+            "MENU": {
+                "key": "w",
+                "modifiers": [
+                    "cmd"
+                ],
+                "kind": "key"
+            },
+            "RS": {
+                "key": "w",
+                "modifiers": [
+                    "cmd"
+                ],
+                "kind": "key"
+            }
+        },
+        "layer_X": {
+            "RIGHT": {
+                "key": "right",
+                "modifiers": [
+                    "cmd",
+                    "alt"
+                ],
+                "kind": "key"
+            },
+            "LEFT": {
+                "key": "left",
+                "modifiers": [
+                    "cmd",
+                    "alt"
+                ],
+                "kind": "key"
+            },
+            "UP": {
+                "key": "tab",
+                "modifiers": [
+                    "shift"
+                ],
+                "kind": "key"
+            },
+            "DOWN": {
+                "key": "tab",
+                "modifiers": [],
+                "kind": "key"
+            }
+        }
+    }
+}

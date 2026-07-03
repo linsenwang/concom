@@ -3,9 +3,20 @@
 # ==============================================================================
 # Version 2.0: Now with intelligent D-Pad mapping and backward compatibility.
 
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
+
 import pygame
-import json
-import re
+
+from config_models import (
+    HardwareMapping,
+    Layer,
+    Profile,
+    ProfileSettings,
+    hardware_input_from_value,
+)
+from profile_manager import save_profile, sanitize_filename
 
 # --- Configuration ---
 SKIP_KEY = pygame.K_s
@@ -26,11 +37,6 @@ class TextPrint:
         self.y = 20
         self.line_height = 30
 
-def sanitize_filename(name):
-    """Generate a safe filename from the device name."""
-    s = re.sub(r'[^\w\s-]', '', name).strip()
-    s = re.sub(r'[-\s]+', '_', s)
-    return f"map_{s}.json"
 
 def run_mapping_tool():
     pygame.init()
@@ -179,12 +185,23 @@ def run_mapping_tool():
 
     if len(mapping) > 1 and output_filename:
         try:
-            final_mapping = {k: list(v) if isinstance(v, tuple) else v for k, v in mapping.items()}
-            with open(output_filename, 'w', encoding='utf-8') as f:
-                json.dump(final_mapping, f, indent=4, ensure_ascii=False)
-            print(f"\nMapping successfully saved to {output_filename}")
+            controller_name = mapping.pop('name', '')
+            inputs = {}
+            for key, value in mapping.items():
+                hw = hardware_input_from_value(value)
+                if hw is not None:
+                    inputs[key] = hw
+
+            profile = Profile(
+                name=controller_name,
+                hardware=HardwareMapping(name=controller_name, inputs=inputs),
+                settings=ProfileSettings(),
+                layers={"default": Layer(name="default")},
+            )
+            saved_path = save_profile(profile)
+            print(f"\nProfile successfully saved to {saved_path}")
         except Exception as e:
-            print(f"\nError: Could not save mapping file: {e}")
+            print(f"\nError: Could not save profile file: {e}")
     pygame.quit()
 
 if __name__ == '__main__':
