@@ -14,6 +14,7 @@ from config_models import (
     AnalogScrollAction,
     CapsWriterAction,
     CommandAction,
+    DPAD_AXIS_INPUTS,
     KeyAction,
     ModifierAction,
     MouseClickAction,
@@ -352,7 +353,9 @@ class WheelRuntimeAction(RuntimeAction):
             )
             for segment in config.segments
         ]
-        self.overlay = RadialWheelOverlay()
+        # Petal shares: a petal's slice of the circle is width / sum(widths).
+        self.weights: list[float] = [segment.width for segment in config.segments]
+        self.overlay = RadialWheelOverlay(weights=self.weights)
         self.visible = False
         self.selected = -1
         self._aimed = False
@@ -402,6 +405,7 @@ class WheelRuntimeAction(RuntimeAction):
             state.get(self.config.pointer_y, 0.0),
             len(self.segments),
             self.config.deadzone,
+            self.weights,
         )
 
     def _aim(self, state: dict[str, Any], mouse: Any, keyboard: Any) -> None:
@@ -543,9 +547,16 @@ class ProfileRunner:
             if wheel.grabbing_pointer
             for axis in wheel.pointer_axes
         }
+        # A wheel aimed with the d-pad reads UP/DOWN/LEFT/RIGHT as its axes, so
+        # the bindings on those buttons have to stay quiet while it is open.
+        muted_inputs = {
+            name for axis in pointer_axes for name in DPAD_AXIS_INPUTS.get(axis, ())
+        }
 
         for input_name, action_cfg in layer.actions.items():
             if action_cfg.kind == "none":
+                continue
+            if input_name in muted_inputs:
                 continue
             if action_cfg.kind == "mouse_move" and (
                 action_cfg.x_axis in pointer_axes or action_cfg.y_axis in pointer_axes

@@ -95,6 +95,16 @@ def hardware_input_to_value(hw: Optional[HardwareInput]) -> Optional[Any]:
     }
 
 
+# The d-pad reaches the runtime both as four buttons (UP/DOWN/LEFT/RIGHT) and
+# as a pair of axes ("dx"/"dy"), so a wheel menu can be aimed with it.  Each
+# axis is derived from the two buttons listed here, which is why a wheel aimed
+# with the d-pad has to mute those buttons' own bindings while it is open.
+DPAD_AXIS_INPUTS: dict[str, tuple[str, str]] = {
+    "dx": ("RIGHT", "LEFT"),
+    "dy": ("UP", "DOWN"),
+}
+
+
 @dataclass
 class HardwareMapping:
     name: str = ""
@@ -176,12 +186,31 @@ class CommandAction:
     command: str = ""
 
 
+def segment_width(value: Any) -> float:
+    """Coerce a petal's share to a usable float; 0 means "never picked"."""
+    try:
+        width = float(value)
+    except (TypeError, ValueError):
+        return 1.0
+    if not 0.0 <= width < float("inf"):  # rejects NaN, inf and negatives
+        return 1.0
+    return width
+
+
 @dataclass
 class WheelSegment:
-    """One petal of a wheel menu: a label plus a nested action dict."""
+    """One petal of a wheel menu: a label, a nested action dict, and its share.
+
+    ``width`` is a relative share: a petal takes ``width / sum(widths)`` of the
+    circle, so 2.0 is twice as wide as 1.0 and 0.5 half as wide.
+    """
 
     label: str = ""
     action: dict[str, Any] = field(default_factory=dict)
+    width: float = 1.0
+
+    def __post_init__(self) -> None:
+        self.width = segment_width(self.width)
 
 
 @dataclass
@@ -239,6 +268,7 @@ def wheel_segments_from_value(value: Any) -> list[WheelSegment]:
             WheelSegment(
                 label=str(item.get("label", "")),
                 action=action if isinstance(action, dict) else {},
+                width=item.get("width", 1.0),
             )
         )
     return segments
@@ -267,6 +297,12 @@ def action_from_dict(d: Optional[dict[str, Any]]) -> Action:
 def action_to_dict(action: Action) -> dict[str, Any]:
     d = asdict(action)
     d["kind"] = d.pop("kind", action.kind)
+    if action.kind == "wheel":
+        # Only spell out shares that differ from the default, so a hand-written
+        # profile keeps its shape after a round-trip through the configurator.
+        for segment in d.get("segments", []):
+            if segment.get("width") == 1.0:
+                segment.pop("width", None)
     return d
 
 

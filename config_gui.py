@@ -91,6 +91,13 @@ ACTION_TYPE_LABELS = {
 MOUSE_BUTTONS = ["left", "right", "middle"]
 MODIFIER_KEYS = ["cmd", "alt", "ctrl", "shift"]
 
+# Aiming source of a wheel menu: readable label -> (pointer_x, pointer_y).
+WHEEL_POINTERS: dict[str, tuple[str, str]] = {
+    "左摇杆": ("lx", "ly"),
+    "右摇杆": ("rx", "ry"),
+    "十字键": ("dx", "dy"),
+}
+
 # Compact text form used to edit one wheel petal in a single line.
 WHEEL_SPEC_HINT = "分支写法: cmd+w / enter / run:open -a Safari / click:left"
 
@@ -606,15 +613,22 @@ class ConfigApp:
 
     def _build_wheel_editor(self, cfg: WheelAction) -> None:
         count = len(cfg.segments) or 4
-        self._wheel_row_vars: list[tuple[tk.StringVar, tk.StringVar]] = []
+        self._wheel_row_vars: list[tuple[tk.StringVar, tk.StringVar, tk.StringVar]] = []
         for segment in cfg.segments:
             self._wheel_row_vars.append(
                 (
                     tk.StringVar(value=segment.label),
                     tk.StringVar(value=wheel_action_to_spec(segment.action)),
+                    tk.StringVar(value=f"{segment.width:g}"),
                 )
             )
 
+        current_pointer = (cfg.pointer_x, cfg.pointer_y)
+        pointer_label = next(
+            (name for name, axes in WHEEL_POINTERS.items() if axes == current_pointer),
+            "左摇杆",
+        )
+        self._make_dropdown("瞄准", "wheel_pointer", list(WHEEL_POINTERS), pointer_label)
         self._make_spinbox("瓣数", "segment_count", count, 2, 8, 1)
         self._props_vars["segment_count"].trace_add(
             "write", self._on_wheel_count_changed
@@ -626,6 +640,14 @@ class ConfigApp:
             wraplength=330,
             justify=tk.LEFT,
         ).pack(anchor=tk.W)
+        tk.Label(
+            self.props_frame,
+            text="占比: 1 为默认角宽，2 是两倍宽，0.5 是一半"
+            "(越小越难选中)；瞄准选十字键时用 4 瓣，一瓣正好管一个方向",
+            fg="gray",
+            wraplength=330,
+            justify=tk.LEFT,
+        ).pack(anchor=tk.W)
 
         self._wheel_rows_frame = tk.Frame(self.props_frame)
         self._wheel_rows_frame.pack(fill=tk.X)
@@ -633,19 +655,28 @@ class ConfigApp:
 
     def _render_wheel_rows(self, count: int) -> None:
         while len(self._wheel_row_vars) < count:
-            self._wheel_row_vars.append((tk.StringVar(value=""), tk.StringVar(value="")))
+            self._wheel_row_vars.append(
+                (
+                    tk.StringVar(value=""),
+                    tk.StringVar(value=""),
+                    tk.StringVar(value="1"),
+                )
+            )
         del self._wheel_row_vars[count:]
 
         for widget in self._wheel_rows_frame.winfo_children():
             widget.destroy()
 
-        for index, (label_var, spec_var) in enumerate(self._wheel_row_vars):
+        for index, (label_var, spec_var, width_var) in enumerate(self._wheel_row_vars):
             row = tk.Frame(self._wheel_rows_frame)
             row.pack(fill=tk.X, pady=1)
             tk.Label(row, text=f"第{index + 1}瓣", width=5, anchor=tk.W).pack(side=tk.LEFT)
             tk.Entry(row, textvariable=label_var, width=8).pack(side=tk.LEFT)
             tk.Entry(row, textvariable=spec_var).pack(
                 side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0)
+            )
+            tk.Entry(row, textvariable=width_var, width=4).pack(
+                side=tk.LEFT, padx=(4, 0)
             )
 
     def _on_wheel_count_changed(self, *_args: Any) -> None:
@@ -660,13 +691,20 @@ class ConfigApp:
 
     def _collect_wheel_segments(self) -> list[WheelSegment]:
         segments: list[WheelSegment] = []
-        for label_var, spec_var in getattr(self, "_wheel_row_vars", []):
+        for label_var, spec_var, width_var in getattr(self, "_wheel_row_vars", []):
             label = label_var.get().strip()
             spec = spec_var.get().strip()
             action = wheel_spec_to_action(spec)
             if not label and action["kind"] == "none":
                 continue
-            segments.append(WheelSegment(label=label or spec, action=action))
+            segments.append(
+                WheelSegment(
+                    label=label or spec,
+                    action=action,
+                    # WheelSegment coerces empty / junk shares back to 1.0.
+                    width=width_var.get(),
+                )
+            )
         return segments
 
     def _make_label(self, text: str) -> None:
@@ -825,7 +863,14 @@ class ConfigApp:
             action = CommandAction(command=self._props_vars["command"].get().strip())
 
         elif kind == "wheel":
-            action = WheelAction(segments=self._collect_wheel_segments())
+            axes = WHEEL_POINTERS.get(
+                self._props_vars["wheel_pointer"].get(), ("lx", "ly")
+            )
+            action = WheelAction(
+                segments=self._collect_wheel_segments(),
+                pointer_x=axes[0],
+                pointer_y=axes[1],
+            )
 
         elif kind == "modifier":
             target = self._props_vars["target_layer"].get()

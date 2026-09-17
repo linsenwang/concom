@@ -184,13 +184,12 @@
                         }
                     },
                     {
-                        "label": "截图",
+                        "label": "网页后退",
                         "action": {
                             "kind": "key",
-                            "key": "3",
+                            "key": "left",
                             "modifiers": [
-                                "cmd",
-                                "shift"
+                                "cmd"
                             ]
                         }
                     },

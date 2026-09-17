@@ -210,10 +210,13 @@
                         }
                     },
                     {
-                        "label": "锁屏",
+                        "label": "后退",
                         "action": {
-                            "kind": "command",
-                            "command": "osascript -e 'tell application \"System Events\" to keystroke \"q\" using {control down, command down}'"
+                            "kind": "key",
+                            "key": "left",
+                            "modifiers": [
+                                "cmd"
+                            ]
                         }
                     }
                 ]

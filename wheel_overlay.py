@@ -48,6 +48,10 @@ except Exception as exc:  # pragma: no cover - platform dependent
     IMPORT_ERROR = exc
 
 
+# Size of the petal labels; bump this up if the wheel is hard to read.
+LABEL_FONT_SIZE = 18.0
+
+
 # ---------------------------------------------------------------------------
 # Colours
 # ---------------------------------------------------------------------------
@@ -66,22 +70,81 @@ if APPKIT_AVAILABLE:
     COLOR_TEXT_SELECTED = _color(0.10, 0.08, 0.02, 1.0)
 
 
-def wedge_angles(index: int, count: int) -> tuple[float, float]:
+def wheel_spans(weights: Optional[Sequence[float]], count: int) -> list[float]:
+    """Angle in degrees for every petal; weights are relative shares.
+
+    Missing, malformed or all-zero weights fall back to an even split, so a
+    wheel still works when only some petals carry a custom share.  A share of
+    exactly 0 leaves a petal unreachable, which is how you retire a petal.
+    """
+    if count <= 0:
+        return []
+
+    raw: list[float] = []
+    for index in range(count):
+        try:
+            value = float(weights[index])  # type: ignore[index]
+        except (TypeError, ValueError, IndexError):
+            value = 1.0
+        raw.append(value if 0.0 <= value < float("inf") else 1.0)
+
+    total = sum(raw)
+    if total <= 0.0:
+        raw = [1.0] * count
+        total = float(count)
+    if all(value == raw[0] for value in raw):
+        # Even split: divide exactly like an unweighted wheel does, so a wheel
+        # whose shares are all default keeps the old geometry to the last bit.
+        return [360.0 / count] * count
+    return [value / total * 360.0 for value in raw]
+
+
+def _petal_starts(spans: Sequence[float]) -> list[float]:
+    """Start angle of every petal, in degrees clockwise from the top.
+
+    Petal 0 is centred on top and the rest follow in order, which keeps the
+    layout identical to an evenly divided wheel when all shares are equal.
+    """
+    # fsum keeps every edge exactly rounded instead of drifting by an ulp as
+    # the spans are added up one at a time.
+    return [-spans[0] / 2.0 + math.fsum(spans[:index]) for index in range(len(spans))]
+
+
+def wedge_angles(
+    index: int, count: int, weights: Optional[Sequence[float]] = None
+) -> tuple[float, float]:
     """Return the (start, end) of a wedge, in degrees clockwise from the top."""
-    step = 360.0 / count
-    start = index * step - step / 2.0
-    return start, start + step
+    spans = wheel_spans(weights, count)
+    if not spans:
+        return 0.0, 0.0
+    index %= count
+    start = _petal_starts(spans)[index]
+    return start, start + spans[index]
 
 
-def direction_to_index(dx: float, dy: float, count: int, deadzone: float) -> int:
+def direction_to_index(
+    dx: float,
+    dy: float,
+    count: int,
+    deadzone: float,
+    weights: Optional[Sequence[float]] = None,
+) -> int:
     """Map a stick vector (x right, y up) to a wedge index, -1 when centred."""
     if count <= 0:
         return -1
     if math.hypot(dx, dy) < deadzone:
         return -1
     angle = math.degrees(math.atan2(dx, dy)) % 360.0  # 0 = up, clockwise
-    step = 360.0 / count
-    return int(((angle + step / 2.0) % 360.0) // step) % count
+    spans = wheel_spans(weights, count)
+    for index, (start, span) in enumerate(zip(_petal_starts(spans), spans)):
+        begin = start % 360.0
+        finish = (start + span) % 360.0
+        if begin <= finish:
+            if begin <= angle < finish:
+                return index
+        elif angle >= begin or angle < finish:
+            return index  # this petal straddles 0 degrees
+    return count - 1
 
 
 if APPKIT_AVAILABLE:
@@ -97,16 +160,20 @@ if APPKIT_AVAILABLE:
             self._selected = -1
             self._radius = 170.0
             self._inner_radius = 62.0
+            self._weights: tuple[float, ...] = ()
             return self
 
         # -- state ---------------------------------------------------------
 
         @objc.python_method
-        def set_wheel_content(self, labels, selected, radius, inner_radius) -> None:
+        def set_wheel_content(
+            self, labels, selected, radius, inner_radius, weights=()
+        ) -> None:
             self._labels = list(labels)
             self._selected = selected
             self._radius = radius
             self._inner_radius = inner_radius
+            self._weights = tuple(weights)
 
         def isOpaque(self) -> bool:
             return False
@@ -162,7 +229,7 @@ if APPKIT_AVAILABLE:
                 return
 
             for i, label in enumerate(self._labels):
-                start, end = wedge_angles(i, count)
+                start, end = wedge_angles(i, count, self._weights)
                 selected = i == self._selected
                 path = self._wedge(cx, cy, r, start, end)
                 (COLOR_WEDGE_SELECTED if selected else COLOR_WEDGE).set()
@@ -178,7 +245,7 @@ if APPKIT_AVAILABLE:
                     label,
                     tx,
                     ty,
-                    13.0,
+                    LABEL_FONT_SIZE,
                     selected,
                     COLOR_TEXT_SELECTED if selected else COLOR_TEXT,
                 )
@@ -202,9 +269,15 @@ if APPKIT_AVAILABLE:
 class RadialWheelOverlay:
     """A reusable wheel overlay window; create once, then show/hide."""
 
-    def __init__(self, radius: float = 170.0, inner_radius: float = 62.0) -> None:
+    def __init__(
+        self,
+        radius: float = 170.0,
+        inner_radius: float = 62.0,
+        weights: Optional[Sequence[float]] = None,
+    ) -> None:
         self._radius = radius
         self._inner_radius = inner_radius
+        self._weights: tuple[float, ...] = tuple(weights) if weights is not None else ()
         self._window = None
         self._view = None
         self._visible = False
@@ -289,13 +362,13 @@ class RadialWheelOverlay:
             self._visible = True
             self._pump_run_loop(0.02)
 
-        key = (tuple(labels), selected)
+        key = (tuple(labels), selected, self._weights)
         if key == self._last_key:
             return
         self._last_key = key
 
         self._view.set_wheel_content(
-            labels, selected, self._radius, self._inner_radius
+            labels, selected, self._radius, self._inner_radius, self._weights
         )
         self._view.setNeedsDisplay_(True)
         window.displayIfNeeded()

@@ -221,6 +221,11 @@ class GenericController:
         if buttons.get("DPAD_RIGHT"):
             buttons["RIGHT"] = True
 
+        # The d-pad is also readable as a pair of axes, so a wheel menu can be
+        # aimed with it the same way it is aimed with a stick.
+        dx = float(buttons["RIGHT"]) - float(buttons["LEFT"])
+        dy = float(buttons["UP"]) - float(buttons["DOWN"])
+
         # Axes
         axes: dict[str, float] = {}
         for name in self.axis_map.values():
@@ -253,6 +258,8 @@ class GenericController:
             "ly": axes.get("ly", 0.0),
             "rx": axes.get("rx", 0.0),
             "ry": axes.get("ry", 0.0),
+            "dx": dx,
+            "dy": dy,
         }
 
     def close(self) -> None:

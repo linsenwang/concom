@@ -122,9 +122,46 @@
                 "kind": "modifier"
             },
             "Y": {
-                "key": "enter",
-                "modifiers": [],
-                "kind": "key"
+                "pointer_x": "dx",
+                "pointer_y": "dy",
+                "deadzone": 0.45,
+                "segments": [
+                    {
+                        "label": "打开浏览器",
+                        "action": {
+                            "kind": "command",
+                            "command": "open -a \"Google Chrome\""
+                        }
+                    },
+                    {
+                        "label": "网页前进",
+                        "action": {
+                            "kind": "key",
+                            "key": "right",
+                            "modifiers": [
+                                "cmd"
+                            ]
+                        }
+                    },
+                    {
+                        "label": "txtReader",
+                        "action": {
+                            "kind": "command",
+                            "command": "osascript -e 'tell application \"Google Chrome\"' -e 'if (count of windows) = 0 then make new window' -e 'set u to \"http://localhost:3000/\"' -e 'tell front window' -e 'set k to 0' -e 'repeat with i from 1 to (count of tabs)' -e 'if URL of tab i starts with u then' -e 'set k to i' -e 'exit repeat' -e 'end if' -e 'end repeat' -e 'if k = 0 then make new tab with properties {URL:u}' -e 'if k = 0 then set k to count of tabs' -e 'set active tab index to k' -e 'set index to 1' -e 'end tell' -e 'activate' -e 'end tell'"
+                        }
+                    },
+                    {
+                        "label": "网页后退",
+                        "action": {
+                            "kind": "key",
+                            "key": "left",
+                            "modifiers": [
+                                "cmd"
+                            ]
+                        }
+                    }
+                ],
+                "kind": "wheel"
             },
             "RIGHT": {
                 "key": "right",
