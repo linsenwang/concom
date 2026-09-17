@@ -357,11 +357,25 @@ class WheelRuntimeAction(RuntimeAction):
         self.selected = -1
         self._aimed = False
         self._fired = False
+        self._await_recenter = False
         self._warned = False
 
     @property
     def labels(self) -> list[str]:
         return [label for label, _ in self.segments]
+
+    @property
+    def pointer_axes(self) -> tuple[str, str]:
+        return (self.config.pointer_x, self.config.pointer_y)
+
+    @property
+    def grabbing_pointer(self) -> bool:
+        """True while the aiming stick must not drag the mouse.
+
+        Stays true after a cancel until the stick falls back to centre, so a
+        cancelled gesture cannot fling the cursor across the screen.
+        """
+        return self.visible or self._await_recenter
 
     def _open(self) -> None:
         if not self.segments:
@@ -421,6 +435,7 @@ class WheelRuntimeAction(RuntimeAction):
         self._hide()
         self._aimed = False
         self._fired = False
+        self._await_recenter = False
 
     def update(self, state, last_state, mouse, keyboard, current_time):
         input_name = getattr(self, "_input_name", "")
@@ -429,11 +444,21 @@ class WheelRuntimeAction(RuntimeAction):
             last_state["buttons"].get(input_name, False) if last_state else False
         )
 
+        if self._await_recenter and self._point_at(state) < 0:
+            self._await_recenter = False  # stick is home again
+
         if not is_down:
             if was_down or self.visible:
-                if not self._fired:
+                if self._fired:
+                    self.hide()
+                else:
+                    # Right hand let go first: cancel. Keep the aiming stick
+                    # muzzled until it falls back to centre so cancelling does
+                    # not fling the cursor across the screen.
+                    deflected = self._point_at(state) >= 0
+                    self.hide()  # resets the muzzle flag
+                    self._await_recenter = deflected
                     print("[转轮] 取消")
-                self.hide()
             return
 
         if not was_down:
@@ -510,13 +535,21 @@ class ProfileRunner:
             self.last_state = state
             return
 
-        # While a wheel is open the aiming stick must not drag the mouse.
-        aiming = any(action.visible for action in self._wheel_actions)
+        # While a wheel is aiming (or waiting for the stick to fall back after
+        # a cancel) the stick that points at it must not drag the mouse.
+        pointer_axes = {
+            axis
+            for wheel in self._wheel_actions
+            if wheel.grabbing_pointer
+            for axis in wheel.pointer_axes
+        }
 
         for input_name, action_cfg in layer.actions.items():
             if action_cfg.kind == "none":
                 continue
-            if aiming and action_cfg.kind == "mouse_move":
+            if action_cfg.kind == "mouse_move" and (
+                action_cfg.x_axis in pointer_axes or action_cfg.y_axis in pointer_axes
+            ):
                 continue
             runtime = self._runtime_actions.get((active_layer, input_name))
             if runtime is None:
