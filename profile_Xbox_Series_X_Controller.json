@@ -165,9 +165,62 @@
                 "kind": "modifier"
             },
             "Y": {
-                "key": "enter",
-                "modifiers": [],
-                "kind": "key"
+                "kind": "wheel",
+                "pointer_x": "lx",
+                "pointer_y": "ly",
+                "deadzone": 0.45,
+                "segments": [
+                    {
+                        "label": "关闭页面",
+                        "action": {
+                            "kind": "key",
+                            "key": "w",
+                            "modifiers": [
+                                "cmd"
+                            ]
+                        }
+                    },
+                    {
+                        "label": "打开浏览器",
+                        "action": {
+                            "kind": "command",
+                            "command": "open -a \"Google Chrome\""
+                        }
+                    },
+                    {
+                        "label": "回车",
+                        "action": {
+                            "kind": "key",
+                            "key": "enter",
+                            "modifiers": []
+                        }
+                    },
+                    {
+                        "label": "截图",
+                        "action": {
+                            "kind": "key",
+                            "key": "3",
+                            "modifiers": [
+                                "cmd",
+                                "shift"
+                            ]
+                        }
+                    },
+                    {
+                        "label": "静音",
+                        "action": {
+                            "kind": "command",
+                            "command": "osascript -e 'set volume output muted not (output muted of (get volume settings))'"
+                        }
+                    },
+                    {
+                        "label": "锁屏",
+                        "action": {
+                            "kind": "command",
+                            "command": "osascript -e 'tell application \"System Events\" to keystroke \"q\" using {control down, command down}'"
+                        }
+                    }
+                ]
             },
             "RIGHT": {
                 "key": "right",

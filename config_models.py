@@ -170,6 +170,31 @@ class CapsWriterAction:
     kind: str = "caps_writer"
 
 
+@dataclass
+class CommandAction:
+    kind: str = "command"
+    command: str = ""
+
+
+@dataclass
+class WheelSegment:
+    """One petal of a wheel menu: a label plus a nested action dict."""
+
+    label: str = ""
+    action: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class WheelAction:
+    """Hold the bound button to show a radial menu, aim with a stick, release to fire."""
+
+    kind: str = "wheel"
+    segments: list[WheelSegment] = field(default_factory=list)
+    pointer_x: str = "lx"
+    pointer_y: str = "ly"
+    deadzone: float = 0.45
+
+
 Action = (
     NoAction
     | MouseClickAction
@@ -179,6 +204,8 @@ Action = (
     | KeyAction
     | ModifierAction
     | CapsWriterAction
+    | CommandAction
+    | WheelAction
 )
 
 
@@ -191,13 +218,43 @@ ACTION_DISPATCH: dict[str, type] = {
     "key": KeyAction,
     "modifier": ModifierAction,
     "caps_writer": CapsWriterAction,
+    "command": CommandAction,
+    "wheel": WheelAction,
 }
+
+
+def wheel_segments_from_value(value: Any) -> list[WheelSegment]:
+    """Normalise a wheel's petals from JSON (list of {label, action} dicts)."""
+    segments: list[WheelSegment] = []
+    if not isinstance(value, (list, tuple)):
+        return segments
+    for item in value:
+        if isinstance(item, WheelSegment):
+            segments.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        action = item.get("action")
+        segments.append(
+            WheelSegment(
+                label=str(item.get("label", "")),
+                action=action if isinstance(action, dict) else {},
+            )
+        )
+    return segments
 
 
 def action_from_dict(d: Optional[dict[str, Any]]) -> Action:
     if not d:
         return NoAction()
     kind = d.get("kind") or d.get("type") or "none"
+    if kind == "wheel":
+        return WheelAction(
+            segments=wheel_segments_from_value(d.get("segments", [])),
+            pointer_x=str(d.get("pointer_x", "lx")),
+            pointer_y=str(d.get("pointer_y", "ly")),
+            deadzone=float(d.get("deadzone", 0.45)),
+        )
     cls = ACTION_DISPATCH.get(kind, NoAction)
     # Remove discriminator fields used in old formats if any
     data = {k: v for k, v in d.items() if k not in ("kind", "type")}

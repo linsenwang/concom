@@ -201,6 +201,7 @@ def main_controller_loop(profile, device_index: int, controller_name: str) -> st
         traceback.print_exc()
         return "error"
     finally:
+        runner.close()
         controller.close()
 
 

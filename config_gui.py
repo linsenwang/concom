@@ -19,6 +19,7 @@ from config_models import (
     AxisMapping,
     ButtonMapping,
     CapsWriterAction,
+    CommandAction,
     DpadAxesMapping,
     HardwareMapping,
     HatMapping,
@@ -29,6 +30,8 @@ from config_models import (
     NoAction,
     Profile,
     ScrollAction,
+    WheelAction,
+    WheelSegment,
 )
 from profile_manager import load_profile, save_profile
 
@@ -79,12 +82,45 @@ ACTION_TYPE_LABELS = {
     "scroll": "滚轮",
     "analog_scroll": "模拟滚轮 (扳机)",
     "key": "键盘按键",
+    "command": "执行命令",
+    "wheel": "功能转轮",
     "modifier": "修饰键 / 切层",
     "caps_writer": "语音对讲机",
 }
 
 MOUSE_BUTTONS = ["left", "right", "middle"]
 MODIFIER_KEYS = ["cmd", "alt", "ctrl", "shift"]
+
+# Compact text form used to edit one wheel petal in a single line.
+WHEEL_SPEC_HINT = "分支写法: cmd+w / enter / run:open -a Safari / click:left"
+
+
+def wheel_spec_to_action(spec: str) -> dict[str, Any]:
+    """Parse a petal spec such as 'cmd+shift+3', 'run:...' or 'click:left'."""
+    spec = spec.strip()
+    if not spec or spec == "none":
+        return {"kind": "none"}
+    if spec.startswith("run:"):
+        return {"kind": "command", "command": spec[4:].strip()}
+    if spec.startswith("click:"):
+        return {"kind": "mouse_click", "button": spec[6:].strip() or "left"}
+    parts = [p.strip() for p in spec.split("+") if p.strip()]
+    modifiers = [p for p in parts if p in MODIFIER_KEYS]
+    keys = [p for p in parts if p not in MODIFIER_KEYS]
+    return {"kind": "key", "key": keys[-1] if keys else "", "modifiers": modifiers}
+
+
+def wheel_action_to_spec(action: dict[str, Any]) -> str:
+    """Render a petal action dict back into its compact text form."""
+    kind = action.get("kind", "none")
+    if kind == "key":
+        parts = list(action.get("modifiers") or []) + [action.get("key", "")]
+        return "+".join(p for p in parts if p)
+    if kind == "command":
+        return "run:" + str(action.get("command", ""))
+    if kind == "mouse_click":
+        return "click:" + str(action.get("button", "left"))
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -488,6 +524,7 @@ class ConfigApp:
 
         # Create dynamic fields
         self._props_vars: dict[str, Any] = {}
+        self._wheel_row_vars: list[tuple[tk.StringVar, tk.StringVar]] = []
         self._build_action_fields(action)
         self._apply_button = tk.Button(
             self.props_frame, text="应用", command=self._apply_action
@@ -530,6 +567,21 @@ class ConfigApp:
             self._make_entry("按键", "key", cfg.key)
             self._make_multichoice("修饰键", "modifiers", MODIFIER_KEYS, cfg.modifiers)
 
+        elif kind == "command":
+            cfg = action if isinstance(action, CommandAction) else CommandAction()
+            self._make_entry("命令", "command", cfg.command)
+            tk.Label(
+                self.props_frame,
+                text='交给 shell 执行，例如: open -a "Google Chrome"',
+                fg="gray",
+                wraplength=330,
+                justify=tk.LEFT,
+            ).pack(anchor=tk.W)
+
+        elif kind == "wheel":
+            cfg = action if isinstance(action, WheelAction) else WheelAction()
+            self._build_wheel_editor(cfg)
+
         elif kind == "modifier":
             cfg = action if isinstance(action, ModifierAction) else ModifierAction()
             self._make_entry("目标层名", "target_layer", cfg.target_layer)
@@ -549,6 +601,73 @@ class ConfigApp:
         if self.selected_input == "RIGHT_STICK":
             return ("rx", "ry")
         return ("lx", "ly")
+
+    # -- wheel editor ------------------------------------------------------
+
+    def _build_wheel_editor(self, cfg: WheelAction) -> None:
+        count = len(cfg.segments) or 4
+        self._wheel_row_vars: list[tuple[tk.StringVar, tk.StringVar]] = []
+        for segment in cfg.segments:
+            self._wheel_row_vars.append(
+                (
+                    tk.StringVar(value=segment.label),
+                    tk.StringVar(value=wheel_action_to_spec(segment.action)),
+                )
+            )
+
+        self._make_spinbox("瓣数", "segment_count", count, 2, 8, 1)
+        self._props_vars["segment_count"].trace_add(
+            "write", self._on_wheel_count_changed
+        )
+        tk.Label(
+            self.props_frame,
+            text=WHEEL_SPEC_HINT,
+            fg="gray",
+            wraplength=330,
+            justify=tk.LEFT,
+        ).pack(anchor=tk.W)
+
+        self._wheel_rows_frame = tk.Frame(self.props_frame)
+        self._wheel_rows_frame.pack(fill=tk.X)
+        self._render_wheel_rows(count)
+
+    def _render_wheel_rows(self, count: int) -> None:
+        while len(self._wheel_row_vars) < count:
+            self._wheel_row_vars.append((tk.StringVar(value=""), tk.StringVar(value="")))
+        del self._wheel_row_vars[count:]
+
+        for widget in self._wheel_rows_frame.winfo_children():
+            widget.destroy()
+
+        for index, (label_var, spec_var) in enumerate(self._wheel_row_vars):
+            row = tk.Frame(self._wheel_rows_frame)
+            row.pack(fill=tk.X, pady=1)
+            tk.Label(row, text=f"第{index + 1}瓣", width=5, anchor=tk.W).pack(side=tk.LEFT)
+            tk.Entry(row, textvariable=label_var, width=8).pack(side=tk.LEFT)
+            tk.Entry(row, textvariable=spec_var).pack(
+                side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0)
+            )
+
+    def _on_wheel_count_changed(self, *_args: Any) -> None:
+        frame = getattr(self, "_wheel_rows_frame", None)
+        if frame is None or not frame.winfo_exists():
+            return
+        try:
+            count = int(float(self._props_vars["segment_count"].get()))
+        except (KeyError, tk.TclError, ValueError):
+            return
+        self._render_wheel_rows(max(2, min(8, count)))
+
+    def _collect_wheel_segments(self) -> list[WheelSegment]:
+        segments: list[WheelSegment] = []
+        for label_var, spec_var in getattr(self, "_wheel_row_vars", []):
+            label = label_var.get().strip()
+            spec = spec_var.get().strip()
+            action = wheel_spec_to_action(spec)
+            if not label and action["kind"] == "none":
+                continue
+            segments.append(WheelSegment(label=label or spec, action=action))
+        return segments
 
     def _make_label(self, text: str) -> None:
         tk.Label(self.props_frame, text=text).pack(anchor=tk.W, pady=(5, 0))
@@ -609,6 +728,7 @@ class ConfigApp:
         for widget in self.props_frame.winfo_children():
             widget.destroy()
         self._props_vars = {}
+        self._wheel_row_vars = []
         self._build_action_fields(action)
         self._apply_button = tk.Button(
             self.props_frame, text="应用", command=self._apply_action
@@ -627,6 +747,28 @@ class ConfigApp:
             return AnalogScrollAction(axis=self.selected_input.lower() if self.selected_input else "lt")
         if kind == "key":
             return KeyAction()
+        if kind == "command":
+            return CommandAction()
+        if kind == "wheel":
+            return WheelAction(
+                segments=[
+                    WheelSegment(
+                        label="关闭页面",
+                        action={"kind": "key", "key": "w", "modifiers": ["cmd"]},
+                    ),
+                    WheelSegment(
+                        label="打开浏览器",
+                        action={
+                            "kind": "command",
+                            "command": 'open -a "Google Chrome"',
+                        },
+                    ),
+                    WheelSegment(
+                        label="回车",
+                        action={"kind": "key", "key": "enter", "modifiers": []},
+                    ),
+                ]
+            )
         if kind == "modifier":
             return ModifierAction(target_layer=f"layer_{self.selected_input}")
         if kind == "caps_writer":
@@ -678,6 +820,12 @@ class ConfigApp:
         elif kind == "key":
             mods = [k for k, v in self._props_vars["modifiers"].items() if v.get()]
             action = KeyAction(key=self._props_vars["key"].get(), modifiers=mods)
+
+        elif kind == "command":
+            action = CommandAction(command=self._props_vars["command"].get().strip())
+
+        elif kind == "wheel":
+            action = WheelAction(segments=self._collect_wheel_segments())
 
         elif kind == "modifier":
             target = self._props_vars["target_layer"].get()

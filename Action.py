@@ -13,13 +13,17 @@ from config_models import (
     Action as ActionConfig,
     AnalogScrollAction,
     CapsWriterAction,
+    CommandAction,
     KeyAction,
     ModifierAction,
     MouseClickAction,
     MouseMoveAction,
     Profile,
     ScrollAction,
+    WheelAction,
+    action_from_dict,
 )
+from wheel_overlay import RadialWheelOverlay, direction_to_index
 
 # ---------------------------------------------------------------------------
 # Platform helpers
@@ -117,6 +121,10 @@ class RuntimeAction:
     ) -> None:
         raise NotImplementedError
 
+    def trigger_once(self, mouse: Any, keyboard: Any) -> None:
+        """Fire the action immediately, ignoring button state (used by the wheel)."""
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Concrete runtime actions
@@ -157,6 +165,9 @@ class MouseClickRuntimeAction(RuntimeAction):
     def __init__(self, config: MouseClickAction):
         self.config = config
         self.button = resolve_mouse_button(config.button)
+
+    def trigger_once(self, mouse, keyboard):
+        mouse.click(self.button)
 
     def update(self, state, last_state, mouse, keyboard, current_time):
         input_name = getattr(self, "_input_name", "")
@@ -241,6 +252,13 @@ class KeyRuntimeAction(RuntimeAction):
         self.key = resolve_key(config.key)
         self.modifiers = [resolve_key(m) for m in config.modifiers]
 
+    def trigger_once(self, mouse, keyboard):
+        if self.modifiers:
+            with keyboard.pressed(*self.modifiers):
+                keyboard.tap(self.key)
+        else:
+            keyboard.tap(self.key)
+
     def update(self, state, last_state, mouse, keyboard, current_time):
         input_name = getattr(self, "_input_name", "")
         is_pressed = state["buttons"].get(input_name, False)
@@ -248,11 +266,7 @@ class KeyRuntimeAction(RuntimeAction):
             last_state["buttons"].get(input_name, False) if last_state else False
         )
         if is_pressed and not was_pressed:
-            if self.modifiers:
-                with keyboard.pressed(*self.modifiers):
-                    keyboard.tap(self.key)
-            else:
-                keyboard.tap(self.key)
+            self.trigger_once(mouse, keyboard)
 
 
 class ModifierRuntimeAction(RuntimeAction):
@@ -297,6 +311,138 @@ class CapsWriterRuntimeAction(RuntimeAction):
                 self.recording = False
 
 
+class CommandRuntimeAction(RuntimeAction):
+    """Runs a shell command, e.g. 'open -a "Google Chrome"'."""
+
+    def __init__(self, config: CommandAction):
+        self.config = config
+
+    def trigger_once(self, mouse, keyboard):
+        if not self.config.command:
+            return
+        try:
+            subprocess.Popen(self.config.command, shell=True)
+        except Exception as e:
+            print(f"[Command] 执行失败 ({self.config.command}): {e}")
+
+    def update(self, state, last_state, mouse, keyboard, current_time):
+        input_name = getattr(self, "_input_name", "")
+        is_pressed = state["buttons"].get(input_name, False)
+        was_pressed = (
+            last_state["buttons"].get(input_name, False) if last_state else False
+        )
+        if is_pressed and not was_pressed:
+            self.trigger_once(mouse, keyboard)
+
+
+class WheelRuntimeAction(RuntimeAction):
+    """Hold the bound button to show a wheel, aim with a stick, let the stick go.
+
+    Commit: let the aiming stick fall back inside the deadzone after having
+    pointed somewhere.  Cancel: let go of the bound button first.
+    The stick used for aiming is relieved of its normal duty (mouse movement)
+    for as long as the wheel is open, see ProfileRunner.update.
+    """
+    def __init__(self, config: WheelAction):
+        self.config = config
+        self.segments: list[tuple[str, RuntimeAction]] = [
+            (
+                segment.label or segment.action.get("kind", "?"),
+                build_runtime_action(action_from_dict(segment.action)),
+            )
+            for segment in config.segments
+        ]
+        self.overlay = RadialWheelOverlay()
+        self.visible = False
+        self.selected = -1
+        self._aimed = False
+        self._fired = False
+        self._warned = False
+
+    @property
+    def labels(self) -> list[str]:
+        return [label for label, _ in self.segments]
+
+    def _open(self) -> None:
+        if not self.segments:
+            return
+        self.visible = True
+        self.selected = -1
+        self._aimed = False
+        self._fired = False
+        if self.overlay.available:
+            self.overlay.show(self.labels, -1)
+        elif not self._warned:
+            self._warned = True
+            print("[转轮] 无法创建悬浮窗，改为在终端提示选中项。")
+
+    def _hide(self) -> None:
+        self.visible = False
+        self.selected = -1
+        if self.overlay.available:
+            self.overlay.hide()
+
+    def _point_at(self, state: dict[str, Any]) -> int:
+        return direction_to_index(
+            state.get(self.config.pointer_x, 0.0),
+            state.get(self.config.pointer_y, 0.0),
+            len(self.segments),
+            self.config.deadzone,
+        )
+
+    def _aim(self, state: dict[str, Any], mouse: Any, keyboard: Any) -> None:
+        index = self._point_at(state)
+        if index >= 0:
+            self._aimed = True
+        elif self._aimed:
+            # Stick released back to centre: commit whatever was highlighted.
+            self._fire(mouse, keyboard)
+            return
+
+        if index == self.selected:
+            return
+        self.selected = index
+        if self.overlay.available:
+            self.overlay.show(self.labels, index)
+        elif index >= 0:
+            print(f"[转轮] 选中: {self.segments[index][0]}")
+
+    def _fire(self, mouse: Any, keyboard: Any) -> None:
+        index = self.selected
+        self._fired = True
+        self._hide()
+        if 0 <= index < len(self.segments):
+            label, runtime = self.segments[index]
+            print(f"[转轮] 执行: {label}")
+            runtime.trigger_once(mouse, keyboard)
+
+    def hide(self) -> None:
+        """Drop the overlay without firing anything."""
+        self._hide()
+        self._aimed = False
+        self._fired = False
+
+    def update(self, state, last_state, mouse, keyboard, current_time):
+        input_name = getattr(self, "_input_name", "")
+        is_down = state["buttons"].get(input_name, False)
+        was_down = (
+            last_state["buttons"].get(input_name, False) if last_state else False
+        )
+
+        if not is_down:
+            if was_down or self.visible:
+                if not self._fired:
+                    print("[转轮] 取消")
+                self.hide()
+            return
+
+        if not was_down:
+            self._open()
+        if self._fired:
+            return
+        self._aim(state, mouse, keyboard)
+
+
 ACTION_RUNTIME_MAP = {
     "none": NoRuntimeAction,
     "mouse_click": MouseClickRuntimeAction,
@@ -306,6 +452,8 @@ ACTION_RUNTIME_MAP = {
     "key": KeyRuntimeAction,
     "modifier": ModifierRuntimeAction,
     "caps_writer": CapsWriterRuntimeAction,
+    "command": CommandRuntimeAction,
+    "wheel": WheelRuntimeAction,
 }
 
 
@@ -324,10 +472,13 @@ class ProfileRunner:
     def __init__(self, profile: Profile):
         self.profile = profile
         self._runtime_actions: dict[tuple[str, str], RuntimeAction] = {}
+        self._wheel_actions: list[WheelRuntimeAction] = []
         for layer_name, layer in profile.layers.items():
             for input_name, action_cfg in layer.actions.items():
                 runtime = build_runtime_action(action_cfg)
                 runtime._input_name = input_name  # type: ignore[attr-defined]
+                if isinstance(runtime, WheelRuntimeAction):
+                    self._wheel_actions.append(runtime)
                 self._runtime_actions[(layer_name, input_name)] = runtime
         self.last_state: Optional[dict[str, Any]] = None
 
@@ -359,8 +510,13 @@ class ProfileRunner:
             self.last_state = state
             return
 
+        # While a wheel is open the aiming stick must not drag the mouse.
+        aiming = any(action.visible for action in self._wheel_actions)
+
         for input_name, action_cfg in layer.actions.items():
             if action_cfg.kind == "none":
+                continue
+            if aiming and action_cfg.kind == "mouse_move":
                 continue
             runtime = self._runtime_actions.get((active_layer, input_name))
             if runtime is None:
@@ -368,6 +524,11 @@ class ProfileRunner:
             runtime.update(state, self.last_state, mouse, keyboard, current_time)
 
         self.last_state = state
+
+    def close(self) -> None:
+        """Release on-screen state, e.g. when the controller goes away."""
+        for action in self._wheel_actions:
+            action.hide()
 
 
 # ---------------------------------------------------------------------------
