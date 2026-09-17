@@ -196,14 +196,10 @@
                         }
                     },
                     {
-                        "label": "截图",
+                        "label": "txtReader",
                         "action": {
-                            "kind": "key",
-                            "key": "3",
-                            "modifiers": [
-                                "cmd",
-                                "shift"
-                            ]
+                            "kind": "command",
+                            "command": "osascript -e 'tell application \"Google Chrome\"' -e 'if (count of windows) = 0 then make new window' -e 'set u to \"http://localhost:3000/\"' -e 'tell front window' -e 'set k to 0' -e 'repeat with i from 1 to (count of tabs)' -e 'if URL of tab i starts with u then' -e 'set k to i' -e 'exit repeat' -e 'end if' -e 'end repeat' -e 'if k = 0 then make new tab with properties {URL:u}' -e 'if k = 0 then set k to count of tabs' -e 'set active tab index to k' -e 'set index to 1' -e 'end tell' -e 'activate' -e 'end tell'"
                         }
                     },
                     {
