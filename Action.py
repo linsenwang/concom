@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import subprocess
 import time
 from typing import Any, Optional
@@ -136,11 +137,37 @@ class NoRuntimeAction(RuntimeAction):
         pass
 
 
+# Mouse movement is expressed in pixels per MOTION_TICK, the poll interval the
+# sensitivity values in the profiles were tuned against.  Multiplying the step
+# by the measured tick keeps the pointer speed independent of the loop's actual
+# rate, so the poll interval can be raised for smoother motion without the
+# cursor getting faster or slower.
+MOTION_TICK = 0.005
+
+# A longer gap than this (system hiccup, breakpoint) counts as a single tick so
+# a stalled loop cannot fling the cursor across the screen.
+MAX_MOTION_DT = 0.05
+
+
 class MouseMoveRuntimeAction(RuntimeAction):
     def __init__(self, config: MouseMoveAction):
         self.config = config
+        self._last_time: Optional[float] = None
+        self._carry_x = 0.0
+        self._carry_y = 0.0
+
+    def _tick_scale(self, current_time: float) -> float:
+        """How many MOTION_TICKs of movement this update is worth."""
+        if self._last_time is None:
+            dt = MOTION_TICK
+        else:
+            dt = min(max(current_time - self._last_time, 0.0), MAX_MOTION_DT)
+        self._last_time = current_time
+        return dt / MOTION_TICK
 
     def update(self, state, last_state, mouse, keyboard, current_time):
+        scale = self._tick_scale(current_time)
+
         lx = state.get(self.config.x_axis, 0.0)
         ly = state.get(self.config.y_axis, 0.0)
 
@@ -152,14 +179,28 @@ class MouseMoveRuntimeAction(RuntimeAction):
         if lx == 0.0 and ly == 0.0:
             return
 
-        dx = (lx ** 3) * self.config.sensitivity
-        dy = -(ly ** 3) * self.config.sensitivity
+        # Carry the sub-pixel remainder between updates: without it a slow
+        # stick deflection rounds down to zero and the cursor never starts
+        # moving until the stick is pushed most of the way out.
+        target_x = (lx ** 3) * self.config.sensitivity * scale + self._carry_x
+        target_y = -(ly ** 3) * self.config.sensitivity * scale + self._carry_y
+        step_x = math.floor(target_x)
+        step_y = math.floor(target_y)
+        self._carry_x = target_x - step_x
+        self._carry_y = target_y - step_y
 
         x, y = mouse.position
         bounds = SCREEN_BOUNDS.get()
-        new_x = min(max(bounds[0], int(x + dx)), bounds[2] - 1)
-        new_y = min(max(bounds[1], int(y + dy)), bounds[3] - 1)
-        mouse.position = (new_x, new_y)
+        new_x = min(max(bounds[0], x + step_x), bounds[2] - 1)
+        new_y = min(max(bounds[1], y + step_y), bounds[3] - 1)
+        # At a screen edge the unconsumed step must be dropped, otherwise the
+        # remainder piles up and the cursor jumps once it can move again.
+        if new_x != x + step_x:
+            self._carry_x = 0.0
+        if new_y != y + step_y:
+            self._carry_y = 0.0
+        if (new_x, new_y) != (x, y):
+            mouse.position = (new_x, new_y)
 
 
 class MouseClickRuntimeAction(RuntimeAction):

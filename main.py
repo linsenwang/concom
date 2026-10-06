@@ -119,6 +119,24 @@ def wait_for_controller(timeout_seconds: float = 180.0) -> tuple[str, int]:
     return controller_name, device_index
 
 
+def _pace(next_tick: float, poll_interval: float) -> float:
+    """Sleep until the next tick and return the deadline after it.
+
+    Deadlines advance on an absolute schedule, so the work an iteration does
+    cannot stretch the period. A plain `sleep(poll_interval)` at the end of the
+    loop adds that work to every period: a 200 Hz target (5 ms) measured ~145 Hz.
+    """
+    next_tick += poll_interval
+    now = time.perf_counter()
+    if next_tick <= now:
+        # More than a whole period behind (system hiccup): skip the missed
+        # ticks instead of firing them back to back.
+        next_tick = now + poll_interval
+    else:
+        time.sleep(next_tick - now)
+    return next_tick
+
+
 def main_controller_loop(profile, device_index: int, controller_name: str) -> str:
     """Run the controller loop. Returns a status string."""
     print("-" * 50)
@@ -141,13 +159,14 @@ def main_controller_loop(profile, device_index: int, controller_name: str) -> st
     last_print_time = 0.0
     last_input_time = time.time()
     poll_interval = profile.settings.poll_interval
+    next_tick = time.perf_counter()
 
     try:
         while True:
             state = controller.read()
 
             if state is None:
-                time.sleep(poll_interval)
+                next_tick = _pace(next_tick, poll_interval)
                 continue
 
             if state.get("status") == "disconnected":
@@ -191,7 +210,7 @@ def main_controller_loop(profile, device_index: int, controller_name: str) -> st
                     print(f"\r{line}\033[K", end="", flush=True)
                 last_print_time = current_time
 
-            time.sleep(poll_interval)
+            next_tick = _pace(next_tick, poll_interval)
 
     except KeyboardInterrupt:
         print("\n\n用户终止程序。")

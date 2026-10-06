@@ -643,7 +643,7 @@ class ConfigApp:
         tk.Label(
             self.props_frame,
             text="占比: 1 为默认角宽，2 是两倍宽，0.5 是一半"
-            "(越小越难选中)；瞄准选十字键时用 4 瓣，一瓣正好管一个方向",
+            "(越小越难选中)；瞄准选十字键时用 4 瓣(只认四方向)或 8 瓣(斜推也有独立格)",
             fg="gray",
             wraplength=330,
             justify=tk.LEFT,

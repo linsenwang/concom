@@ -322,7 +322,9 @@ class ProfileSettings:
     mouse_deadzone: float = 0.15
     scroll_initial_delay: float = 0.3
     scroll_repeat_rate: float = 0.05
-    poll_interval: float = 0.005
+    # Input poll period in seconds. Raising the rate only makes the pointer
+    # smoother; it does not change how fast it travels.
+    poll_interval: float = 0.002
 
 
 @dataclass
