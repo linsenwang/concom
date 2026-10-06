@@ -323,8 +323,10 @@ class ProfileSettings:
     scroll_initial_delay: float = 0.3
     scroll_repeat_rate: float = 0.05
     # Input poll period in seconds. Raising the rate only makes the pointer
-    # smoother; it does not change how fast it travels.
-    poll_interval: float = 0.002
+    # smoother; it does not change how fast it travels.  The cost is per-wakeup
+    # though: polling at 500 Hz (0.002) measured ~1.2 points of CPU more than
+    # 250 Hz with no gain, since the pad cannot deliver new data that fast.
+    poll_interval: float = 0.004
 
 
 @dataclass

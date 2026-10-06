@@ -11,12 +11,9 @@ import pygame
 
 from config_models import (
     HardwareMapping,
-    Layer,
-    Profile,
-    ProfileSettings,
     hardware_input_from_value,
 )
-from profile_manager import save_profile, sanitize_filename
+from profile_manager import load_profile, save_profile, sanitize_filename
 
 # --- Configuration ---
 SKIP_KEY = pygame.K_s
@@ -38,8 +35,32 @@ class TextPrint:
         self.line_height = 30
 
 
+def save_mapped_profile(mapping: dict) -> str:
+    """Write freshly mapped hardware into the controller's profile.
+
+    Only the ``hardware`` section is replaced. The layers and settings the user
+    configured are kept, so running the mapping tool never wipes the bindings
+    (a profile rebuilt from scratch here comes out with no actions at all).
+    """
+    controller_name = mapping.pop("name", "")
+    inputs = {}
+    for key, value in mapping.items():
+        hw = hardware_input_from_value(value)
+        if hw is not None:
+            inputs[key] = hw
+
+    profile = load_profile(controller_name)
+    profile.name = controller_name
+    profile.hardware = HardwareMapping(name=controller_name, inputs=inputs)
+    return save_profile(profile)
+
+
 def run_mapping_tool():
-    pygame.init()
+    # 与 main.py 同理：不要 pygame.init()，它会顺带初始化出空闲也占 CPU 的
+    # SDL_mixer；映射工具只需要显示、字体和手柄。
+    pygame.display.init()
+    pygame.font.init()
+    pygame.joystick.init()
     screen = pygame.display.set_mode((800, 700))
     pygame.display.set_caption("Gamepad Mapping Tool (Backward Compatible)")
     clock = pygame.time.Clock()
@@ -185,20 +206,7 @@ def run_mapping_tool():
 
     if len(mapping) > 1 and output_filename:
         try:
-            controller_name = mapping.pop('name', '')
-            inputs = {}
-            for key, value in mapping.items():
-                hw = hardware_input_from_value(value)
-                if hw is not None:
-                    inputs[key] = hw
-
-            profile = Profile(
-                name=controller_name,
-                hardware=HardwareMapping(name=controller_name, inputs=inputs),
-                settings=ProfileSettings(),
-                layers={"default": Layer(name="default")},
-            )
-            saved_path = save_profile(profile)
+            saved_path = save_mapped_profile(mapping)
             print(f"\nProfile successfully saved to {saved_path}")
         except Exception as e:
             print(f"\nError: Could not save profile file: {e}")

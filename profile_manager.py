@@ -205,6 +205,10 @@ def load_profile(controller_name: str, mapping_dir: str = ".") -> Profile:
             old_data = json.load(f)
         hardware = _hardware_from_old_map(old_data)
         profile = _build_default_profile(hardware)
+        print(
+            f"⚠️ 找不到配置文件 {profile_file}，已按旧版 ACTION_CONFIG.py 重建。"
+            "只存在于 profile 里的绑定（例如功能转轮）不会恢复。"
+        )
         save_profile(profile, mapping_dir=mapping_dir)
         return profile
 

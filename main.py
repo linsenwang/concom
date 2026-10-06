@@ -95,7 +95,9 @@ def disconnect_bluetooth_controller(controller_name: str | None = None) -> None:
 def wait_for_controller(timeout_seconds: float = 180.0) -> tuple[str, int]:
     """Wait for a controller and return (name, device_index)."""
     print("正在初始化系统...")
-    pygame.init()
+    # 只初始化用得到的子系统：pygame.init() 还会拉起 SDL_mixer，它的
+    # CoreAudio 线程即使不放任何声音也在持续唤醒进程（实测约 2% CPU 空转）。
+    pygame.display.init()
     pygame.joystick.init()
 
     print(f"等待手柄连接...（{timeout_seconds}秒后自动关闭）", end="", flush=True)

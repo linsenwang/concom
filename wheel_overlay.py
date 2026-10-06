@@ -341,8 +341,16 @@ class RadialWheelOverlay:
         self._view = view
         return window
 
-    def _pump_run_loop(self, seconds: float = 0.01) -> None:
-        """Let AppKit commit window changes; nothing consumes NSEvents here."""
+    def _pump_run_loop(self, seconds: float = 0.0) -> None:
+        """Service whatever AppKit has pending, without waiting for more.
+
+        This runs on the controller's polling thread, so blocking here *is*
+        input latency: a 10 ms pump measured ~11 ms and froze pointer control
+        for that long on every repaint, 20 ms when the wheel opened.  A
+        zero-length pump drains the pending work and returns immediately; the
+        repaint itself is forced synchronously by ``displayIfNeeded``, so
+        nothing is left deferred.
+        """
         try:
             NSRunLoop.currentRunLoop().runUntilDate_(
                 NSDate.dateWithTimeIntervalSinceNow_(seconds)
@@ -360,7 +368,7 @@ class RadialWheelOverlay:
         if not self._visible:
             window.orderFrontRegardless()
             self._visible = True
-            self._pump_run_loop(0.02)
+            self._pump_run_loop()
 
         key = (tuple(labels), selected, self._weights)
         if key == self._last_key:
@@ -380,5 +388,5 @@ class RadialWheelOverlay:
         if self._visible:
             self._window.orderOut_(None)
             self._visible = False
-            self._pump_run_loop(0.02)
+            self._pump_run_loop()
         self._last_key = None
